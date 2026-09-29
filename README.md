@@ -17,6 +17,13 @@
 
 </div>
 
+
+<p align="center">
+  <img src="docs/images/global-pulse.webp" alt="Project V Watchtower Global Pulse situational-awareness command deck" width="100%">
+  <br>
+  <sub><strong>Global Pulse</strong> — live mapping, intelligence feeds, AI insights, strategic risk, markets, and operational panels in one command deck.</sub>
+</p>
+
 > [!NOTE]
 > **Official fork.** This repository is the Project V // Watchtower fork of [World Monitor](https://github.com/koala73/worldmonitor). Watchtower is independently maintained, substantially modified, and is not an official World Monitor release or endorsed by the upstream developers.
 
@@ -56,6 +63,45 @@ Project V work has included or planned capabilities such as:
 - Project V ecosystem integrations
 
 See [WHITEPAPER.md](WHITEPAPER.md), [UPDATES.md](UPDATES.md), and [ROADMAP.md](ROADMAP.md) for Project V-specific documentation.
+
+
+## Screenshots
+
+### Live operations
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/images/air-operations.webp" alt="Project V Watchtower Air Operations aircraft tracking map" width="100%">
+      <br><sub><strong>Air Operations</strong> — global ADS-B contacts, aircraft intelligence, filters, watch targets, and analyst notes.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/images/weather-intelligence.webp" alt="Project V Watchtower Weather Intelligence radar and severe weather alerts" width="100%">
+      <br><sub><strong>Weather Intelligence</strong> — radar, active NWS alerts, location intelligence, and operational weather detail.</sub>
+    </td>
+  </tr>
+</table>
+
+### Monitoring and extensibility
+
+<p align="center">
+  <img src="docs/images/camera-wall.webp" alt="Project V Watchtower Camera Wall live stream workspace" width="100%">
+  <br>
+  <sub><strong>Camera Wall</strong> — configurable live-stream groups, multi-feed layouts, source management, and full-screen monitoring.</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="50%" valign="top" align="center">
+      <img src="docs/images/module-library.webp" alt="Project V Watchtower Module Library" width="72%">
+      <br><sub><strong>Module Library</strong> — add, remove, restore, and organize operational modules across command desks.</sub>
+    </td>
+    <td width="50%" valign="top" align="center">
+      <img src="docs/images/plugin-control.webp" alt="Project V Watchtower Plugin Control sandbox" width="72%">
+      <br><sub><strong>Plugin Control</strong> — reviewed local extensions with permission-aware, restricted sandboxing.</sub>
+    </td>
+  </tr>
+</table>
 
 ## Legacy Windows releases
 
