@@ -1,113 +1,116 @@
 # Security Policy
 
-## Supported Versions
+## Project status
 
-| Version | Supported          |
-| ------- | ------------------ |
-| main    | :white_check_mark: |
+Project V // Watchtower is a current Windows reference build that has **not** undergone an independent security audit.
 
-Only the latest version on the `main` branch is actively maintained and receives security updates.
+Do not use it as the only protection for highly sensitive, classified, regulated, life-safety, or mission-critical information.
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-**Please do NOT report security vulnerabilities through public GitHub issues.**
+Do not publish exploit details, working proof-of-concept code, private keys, or sensitive logs in a public issue.
 
-If you discover a security vulnerability in World Monitor, please report it responsibly:
+Preferred process:
 
-1. **GitHub Private Vulnerability Reporting**: Use [GitHub's private vulnerability reporting](https://github.com/koala73/worldmonitor/security/advisories/new) to submit your report directly through the repository.
+1. Use GitHub private vulnerability reporting or a Security Advisory if enabled.
+2. If private reporting is not enabled, open a minimal public issue requesting a private security contact. Do not include exploit details.
+3. Include the affected version, operating system, impact, and the smallest safe reproduction description.
+4. Allow reasonable time for triage before public disclosure.
 
-2. **Direct Contact**: Alternatively, reach out to the repository owner [@koala73](https://github.com/koala73) directly through GitHub.
+No bounty program is promised unless separately announced.
 
-### What to Include
+## Security boundaries
 
-- A description of the vulnerability and its potential impact
-- Steps to reproduce the issue
-- Affected components (edge functions, client-side code, data layers, etc.)
-- Any potential fixes or mitigations you've identified
+### Trusted application components
 
-### Response Timeline
+Core Project V windows and native Tauri commands are trusted application components but remain subject to software defects.
 
-- **Acknowledgment**: Within 48 hours of your report
-- **Initial Assessment**: Within 1 week
-- **Fix/Patch**: Depending on severity, critical issues will be prioritized
+### Plugins
 
-### What to Expect
+Imported plugins are sandboxed and permission-gated. They should still be reviewed before installation.
 
-- You will receive an acknowledgment of your report
-- We will work with you to understand and validate the issue
-- We will keep you informed of progress toward a fix
-- Credit will be given to reporters in the fix commit (unless you prefer anonymity)
+### Remote web content
 
-## Security Considerations
+Public websites, communications services, and source pages are untrusted remote content. They should not receive Project V secrets or trusted IPC access.
 
-World Monitor is a client-side intelligence dashboard that aggregates publicly available data. Here are the key security areas:
+### Local applications
 
-### API Keys & Secrets
+Programs opened through Launch Deck run as separate Windows processes. Project V does not sandbox those applications.
 
-- **Web deployment**: API keys are stored server-side in Vercel Edge Functions
-- **Desktop runtime**: API keys are stored in the OS keychain (macOS Keychain / Windows Credential Manager) via a consolidated vault entry, never on disk in plaintext
-- No API keys should ever be committed to the repository
-- Environment variables (`.env.local`) are gitignored
-- The RSS proxy uses domain allowlisting to prevent SSRF. Both the Vercel Edge proxy and the Railway relay re-check the RSS allowlist on every redirect hop.
-- The Pro-gated MCP proxy accepts only HTTPS targets, resolves and rejects private/reserved A and AAAA answers immediately before each outbound request, and strips cloud-metadata headers. Vercel Edge `fetch` cannot pin its socket to the vetted address, so a narrow resolve-versus-connect DNS-rebinding window remains an accepted residual; closing it requires a Node-runtime/socket-pinning design (tracked in draft advisory [GHSA-887j-p88r-qmm9](https://github.com/koala73/worldmonitor/security/advisories/GHSA-887j-p88r-qmm9), access restricted until publication).
+### Local AI
 
-### Edge Functions & Sebuf Handlers
+A local model can produce incorrect, manipulated, or unsafe output. AI text is not evidence, authorization, or an executable instruction.
 
-- Domain APIs are served through Sebuf (a Proto-first RPC framework) via Vercel Edge Functions
-- Edge functions and handlers should validate/sanitize all input
-- CORS headers are configured per-function
-- Rate limiting and circuit breakers protect against abuse
+## Implemented controls
 
-### Client-Side Security
+Depending on the enabled feature and runtime:
 
-- No sensitive data is stored in localStorage or sessionStorage
-- External content (RSS feeds, news) is sanitized before rendering
-- Map data layers use trusted, vetted data sources
-- Content Security Policy restricts script-src to `'self'` (no unsafe-inline/eval)
+- Tauri desktop isolation
+- Restricted IPC command surface
+- Context isolation between trusted and untrusted content
+- Operating-system credential vault for supported secrets
+- Project Lock
+- Sandboxed plugin frames
+- Declared plugin permissions and network origins
+- Restricted Source Browser and communications windows
+- Network modes
+- Safe Mode
+- Last-known-good configuration
+- Protected backups using AES-GCM and PBKDF2-SHA256
+- Local blocked-request audit records
+- Release checksum support
 
-### Desktop Runtime Security (Tauri)
+## Important limitations
 
-- **IPC origin validation**: Sensitive Tauri commands (secrets, cache, token) are gated to trusted windows only; external-origin windows (e.g., YouTube login) are blocked
-- **DevTools**: Disabled in production builds; gated behind an opt-in Cargo feature for development
-- **Sidecar authentication**: A per-session CSPRNG token (`LOCAL_API_TOKEN`) authenticates all renderer-to-sidecar requests, preventing other local processes from accessing the API
-- **Capability isolation**: The YouTube login window runs under a restricted capability with no access to secret or cache IPC commands
-- **Fetch patch trust boundary**: The global fetch interceptor injects the sidecar token with a 5-minute TTL; the renderer is the intended client — if renderer integrity is compromised, Tauri IPC provides strictly more access than the fetch patch
+The application does not protect against:
 
-### Data Sources
+- a compromised Windows account or kernel;
+- malware with the user's privileges;
+- screen capture or keylogging malware;
+- stolen unlocked devices;
+- malicious firmware;
+- compromised provider accounts;
+- incorrect or poisoned external data;
+- social engineering;
+- weak user passphrases;
+- unreviewed third-party applications;
+- vulnerabilities in WebView2, Tauri, dependencies, or the application;
+- traffic outside the application's guarded frontend request paths.
 
-- World Monitor aggregates publicly available OSINT data
-- No classified or restricted data sources are used
-- State-affiliated sources are flagged with propaganda risk ratings
-- All data is consumed read-only — the platform does not modify upstream sources
+Project Lock is an application privacy control, not full-disk encryption.
 
-## Scope
+Emergency Disconnect primarily blocks new guarded frontend requests. Existing remote windows, streams, or external processes may require separate closure.
 
-The following are **in scope** for security reports:
+## Release integrity
 
-- Vulnerabilities in the World Monitor codebase
-- Edge function security issues (SSRF, injection, auth bypass)
-- XSS or content injection through RSS feeds or external data
-- API key exposure or secret leakage
-- Tauri IPC command privilege escalation or capability bypass
-- Sidecar authentication bypass or token leakage
-- Dependency vulnerabilities with a viable attack vector
+Current public Windows builds are not represented as Authenticode-signed.
 
-The following are **out of scope**:
+Users should:
 
-- Vulnerabilities in third-party services we consume (report to the upstream provider)
-- Social engineering attacks
-- Denial of service attacks
-- Issues in forked copies of the repository
-- Security issues in user-provided environment configurations
+1. Download only from the official ProjectVOfficial GitHub repository.
+2. Verify published checksums when provided.
+3. Treat unexpected filename, size, hash, publisher, or repository changes as suspicious.
+4. Preserve a known-good offline copy when appropriate.
 
-## Best Practices for Contributors
+## Secret handling
 
-- Never commit API keys, tokens, or secrets
-- Use environment variables for all sensitive configuration
-- Sanitize external input in edge functions
-- Keep dependencies updated — run `npm audit` regularly
-- Follow the principle of least privilege for API access
+Never submit:
 
----
+- API keys
+- passwords
+- OAuth tokens
+- `.env` files
+- updater private keys
+- Authenticode certificate private keys
+- personal research databases
+- private case evidence
+- exact sensitive locations
+- unredacted diagnostic archives
 
-Thank you for helping keep World Monitor and its users safe! 🔒
+## Dependency risk
+
+Dependencies should be reviewed and updated deliberately. Automated forced upgrades can introduce breaking changes. Security advisories should be evaluated in the context of whether the affected package and code path are included and reachable in the released desktop application.
+
+## Supported versions
+
+Until a formal support policy is announced, only the newest published Project V // Watchtower release should be considered actively reviewed.
