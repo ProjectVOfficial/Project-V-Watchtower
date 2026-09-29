@@ -1,4 +1,0 @@
-Upload these six .webp files to:
-docs/images/watchtower/
-
-Do NOT upload the API & Data Sources screenshot from this chat as-is; it contains a partially visible Watchtower Access Key.
