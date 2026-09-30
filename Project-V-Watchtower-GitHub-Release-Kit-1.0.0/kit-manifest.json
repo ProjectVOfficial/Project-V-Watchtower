@@ -1,0 +1,8 @@
+{
+  "name": "Project V Watchtower GitHub Release Kit",
+  "version": "1.0.0",
+  "purpose": "Prepare a documentation repository and draft GitHub Release with Windows installers, source archive, and checksums.",
+  "fileCount": 25,
+  "defaultReleaseMode": "draft",
+  "expectedProject": "project-v-watchtower"
+}

@@ -1,0 +1,30 @@
+# Release assets belong on GitHub Releases, not in Git history
+*.exe
+*.msi
+*.msix
+*.appx
+*.zip
+*.7z
+*.tar
+*.gz
+SHA256SUMS.txt
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+*.p12
+*.jks
+*.keystore
+*.cer
+*.crt
+
+# Local tooling
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+github-release-output/

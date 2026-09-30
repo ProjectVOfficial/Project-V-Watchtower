@@ -1,7 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod cache_bounds;
-
 use std::collections::HashMap;
 use std::env;
 use std::fs::{self, File, OpenOptions};
@@ -10,38 +8,30 @@ use std::io::Write;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use keyring::Entry;
 use reqwest::Url;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{Map, Value};
-use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Manager, RunEvent, Webview, WebviewUrl, WebviewWindowBuilder, WindowEvent};
-
-use cache_bounds::validate_cache_write_sizes;
+use tauri::webview::WebviewBuilder;
+use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, RunEvent, Webview, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+#[cfg(target_os = "macos")]
+use tauri::WindowEvent;
+#[cfg(feature = "updater")]
+use tauri_plugin_updater::UpdaterExt;
 
 const DEFAULT_LOCAL_API_PORT: u16 = 46123;
-const SIDECAR_PORT_RECOVERY_TIMEOUT_MS: u64 = 30_000;
-const MAX_LOCAL_API_PROXY_BYTES: usize = 16 * 1024 * 1024;
-const KEYRING_SERVICE: &str = "world-monitor";
+const KEYRING_SERVICE: &str = "project-v-watchtower";
+const LEGACY_KEYRING_SERVICE: &str = "world-monitor";
+const PHOENIX_BRIDGE_KEYRING_USER: &str = "phoenix-watchtower-bridge-token";
 const LOCAL_API_LOG_FILE: &str = "local-api.log";
 const DESKTOP_LOG_FILE: &str = "desktop.log";
-const MENU_FILE_SETTINGS_ID: &str = "file.settings";
-const MENU_HELP_GITHUB_ID: &str = "help.github";
-#[cfg(feature = "devtools")]
-const MENU_HELP_DEVTOOLS_ID: &str = "help.devtools";
-const TRUSTED_WINDOWS: [&str; 3] = ["main", "settings", "live-channels"];
-const SECRET_MANAGEMENT_WINDOWS: [&str; 2] = ["main", "settings"];
-const DESKTOP_SHARED_SECRET_KEY: &str = "WM_DESKTOP_SHARED_SECRET";
-const BUILD_TIME_SIDECAR_ENV_KEYS: [&str; 2] = ["CONVEX_URL", DESKTOP_SHARED_SECRET_KEY];
-const SUPPORTED_SECRET_KEYS: [&str; 30] = [
+const TRUSTED_WINDOWS: [&str; 11] = ["main", "settings", "live-channels", "case-desk", "data-desk", "map-operations", "assistant-desk", "analysis-room", "launch-desk", "camera-desk", "osint-desk"];
+const SUPPORTED_SECRET_KEYS: [&str; 26] = [
     "GROQ_API_KEY",
     "OPENROUTER_API_KEY",
-    "EXA_API_KEYS",
-    "BRAVE_API_KEYS",
-    "SERPAPI_API_KEYS",
     "FRED_API_KEY",
     "EIA_API_KEY",
     "CLOUDFLARE_API_TOKEN",
@@ -57,44 +47,74 @@ const SUPPORTED_SECRET_KEYS: [&str; 30] = [
     "AISSTREAM_API_KEY",
     "VITE_WS_RELAY_URL",
     "FINNHUB_API_KEY",
-    "ALPHA_VANTAGE_API_KEY",
     "NASA_FIRMS_API_KEY",
-    "UCDP_ACCESS_TOKEN",
+    "UC_DP_KEY",
     "OLLAMA_API_URL",
     "OLLAMA_MODEL",
+    "WATCHTOWER_ACCESS_KEY",
     "WORLDMONITOR_API_KEY",
     "WTO_API_KEY",
     "AVIATIONSTACK_API",
     "ICAO_API_KEY",
-    DESKTOP_SHARED_SECRET_KEY,
 ];
 
+#[derive(Default)]
 struct LocalApiState {
-    child: Arc<Mutex<Option<Child>>>,
+    child: Mutex<Option<Child>>,
     token: Mutex<Option<String>>,
-    port: Arc<Mutex<Option<u16>>>,
-    http_client: reqwest::Client,
-}
-
-impl Default for LocalApiState {
-    fn default() -> Self {
-        Self {
-            child: Arc::new(Mutex::new(None)),
-            token: Mutex::new(None),
-            port: Arc::new(Mutex::new(None)),
-            http_client: reqwest::Client::builder()
-                .use_native_tls()
-                .pool_max_idle_per_host(2)
-                .build()
-                .unwrap_or_default(),
-        }
-    }
+    port: Mutex<Option<u16>>,
 }
 
 /// In-memory cache for keychain secrets. Populated once at startup to avoid
 /// repeated macOS Keychain prompts (each `Entry::get_password()` triggers one).
 struct SecretsCache {
     secrets: Mutex<HashMap<String, String>>,
+}
+
+
+/// Dedicated Phoenix bridge token state. This is intentionally separate from the
+/// general runtime-secret vault so get_all_secrets never exposes the pairing token
+/// to renderer JavaScript after pairing.
+struct PhoenixBridgeSecret {
+    token: Mutex<Option<String>>,
+}
+
+impl PhoenixBridgeSecret {
+    fn load_from_keychain() -> Self {
+        let token = Entry::new(KEYRING_SERVICE, PHOENIX_BRIDGE_KEYRING_USER)
+            .ok()
+            .and_then(|entry| entry.get_password().ok())
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        Self { token: Mutex::new(token) }
+    }
+
+    fn set(&self, token: &str) -> Result<(), String> {
+        let entry = Entry::new(KEYRING_SERVICE, PHOENIX_BRIDGE_KEYRING_USER)
+            .map_err(|e| format!("Could not open Phoenix bridge credential: {e}"))?;
+        entry
+            .set_password(token)
+            .map_err(|e| format!("Could not store Phoenix bridge credential: {e}"))?;
+        let mut state = self.token.lock().map_err(|_| "Phoenix bridge token lock poisoned".to_string())?;
+        *state = Some(token.to_string());
+        Ok(())
+    }
+
+    fn clear(&self) -> Result<(), String> {
+        if let Ok(entry) = Entry::new(KEYRING_SERVICE, PHOENIX_BRIDGE_KEYRING_USER) {
+            let _ = entry.delete_credential();
+        }
+        let mut state = self.token.lock().map_err(|_| "Phoenix bridge token lock poisoned".to_string())?;
+        *state = None;
+        Ok(())
+    }
+
+    fn get(&self) -> Result<Option<String>, String> {
+        self.token
+            .lock()
+            .map(|value| value.clone())
+            .map_err(|_| "Phoenix bridge token lock poisoned".to_string())
+    }
 }
 
 /// In-memory mirror of persistent-cache.json. The file can grow to 10+ MB,
@@ -104,54 +124,83 @@ struct PersistentCache {
     data: Mutex<Map<String, Value>>,
     dirty: Mutex<bool>,
     write_lock: Mutex<()>,
-    generation: Mutex<u64>,
-    flush_scheduled: Mutex<bool>,
 }
 
 impl SecretsCache {
+    fn parse_vault(json: &str) -> Option<HashMap<String, String>> {
+        serde_json::from_str::<HashMap<String, String>>(json)
+            .ok()
+            .map(|map| {
+                map.into_iter()
+                    .filter(|(key, value)| {
+                        SUPPORTED_SECRET_KEYS.contains(&key.as_str()) && !value.trim().is_empty()
+                    })
+                    .map(|(key, value)| (key, value.trim().to_string()))
+                    .collect()
+            })
+    }
+
+    fn read_consolidated(service: &str) -> Option<HashMap<String, String>> {
+        let entry = Entry::new(service, "secrets-vault").ok()?;
+        let json = entry.get_password().ok()?;
+        Self::parse_vault(&json)
+    }
+
+    fn write_consolidated(service: &str, secrets: &HashMap<String, String>) -> bool {
+        let Ok(json) = serde_json::to_string(secrets) else {
+            return false;
+        };
+        let Ok(entry) = Entry::new(service, "secrets-vault") else {
+            return false;
+        };
+        entry.set_password(&json).is_ok()
+    }
+
     fn load_from_keychain() -> Self {
-        // Try consolidated vault first — single keychain prompt
-        if let Ok(entry) = Entry::new(KEYRING_SERVICE, "secrets-vault") {
-            if let Ok(json) = entry.get_password() {
-                if let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&json) {
-                    let secrets: HashMap<String, String> = map
-                        .into_iter()
-                        .filter(|(k, v)| {
-                            SUPPORTED_SECRET_KEYS.contains(&k.as_str()) && !v.trim().is_empty()
-                        })
-                        .map(|(k, v)| (k, v.trim().to_string()))
-                        .collect();
-                    return SecretsCache {
-                        secrets: Mutex::new(secrets),
-                    };
-                }
-            }
+        // Phase Ten uses a Project V-specific credential service. Existing
+        // World Monitor credentials are migrated without exposing them to JS.
+        if let Some(secrets) = Self::read_consolidated(KEYRING_SERVICE) {
+            return SecretsCache {
+                secrets: Mutex::new(secrets),
+            };
         }
 
-        // Migration: read individual keys (old format), consolidate into vault.
-        // This triggers one keychain prompt per key — happens only once.
+        if let Some(secrets) = Self::read_consolidated(LEGACY_KEYRING_SERVICE) {
+            if Self::write_consolidated(KEYRING_SERVICE, &secrets) {
+                if let Ok(entry) = Entry::new(LEGACY_KEYRING_SERVICE, "secrets-vault") {
+                    let _ = entry.delete_credential();
+                }
+            }
+            return SecretsCache {
+                secrets: Mutex::new(secrets),
+            };
+        }
+
+        // Migration: read any legacy per-key entries from either service,
+        // consolidate them into the Project V vault, then clean up only after
+        // the new vault write succeeds.
         let mut secrets = HashMap::new();
-        for key in SUPPORTED_SECRET_KEYS.iter() {
-            if let Ok(entry) = Entry::new(KEYRING_SERVICE, key) {
-                if let Ok(value) = entry.get_password() {
-                    let trimmed = value.trim().to_string();
-                    if !trimmed.is_empty() {
-                        secrets.insert((*key).to_string(), trimmed);
+        for service in [KEYRING_SERVICE, LEGACY_KEYRING_SERVICE] {
+            for key in SUPPORTED_SECRET_KEYS.iter() {
+                if secrets.contains_key(*key) {
+                    continue;
+                }
+                if let Ok(entry) = Entry::new(service, key) {
+                    if let Ok(value) = entry.get_password() {
+                        let trimmed = value.trim().to_string();
+                        if !trimmed.is_empty() {
+                            secrets.insert((*key).to_string(), trimmed);
+                        }
                     }
                 }
             }
         }
 
-        // Write consolidated vault and clean up individual entries
-        if !secrets.is_empty() {
-            if let Ok(json) = serde_json::to_string(&secrets) {
-                if let Ok(vault_entry) = Entry::new(KEYRING_SERVICE, "secrets-vault") {
-                    if vault_entry.set_password(&json).is_ok() {
-                        for key in SUPPORTED_SECRET_KEYS.iter() {
-                            if let Ok(entry) = Entry::new(KEYRING_SERVICE, key) {
-                                let _ = entry.delete_credential();
-                            }
-                        }
+        if !secrets.is_empty() && Self::write_consolidated(KEYRING_SERVICE, &secrets) {
+            for service in [KEYRING_SERVICE, LEGACY_KEYRING_SERVICE] {
+                for key in SUPPORTED_SECRET_KEYS.iter() {
+                    if let Ok(entry) = Entry::new(service, key) {
+                        let _ = entry.delete_credential();
                     }
                 }
             }
@@ -178,8 +227,6 @@ impl PersistentCache {
             data: Mutex::new(data),
             dirty: Mutex::new(false),
             write_lock: Mutex::new(()),
-            generation: Mutex::new(0),
-            flush_scheduled: Mutex::new(false),
         }
     }
 
@@ -189,7 +236,6 @@ impl PersistentCache {
     }
 
     /// Flush to disk only if dirty. Returns Ok(true) if written.
-    /// Uses atomic write (temp file + rename) to prevent corruption on crash.
     fn flush(&self, path: &Path) -> Result<bool, String> {
         let _write_guard = self.write_lock.lock().unwrap_or_else(|e| e.into_inner());
 
@@ -205,13 +251,8 @@ impl PersistentCache {
         let serialized = serde_json::to_string(&Value::Object(data.clone()))
             .map_err(|e| format!("Failed to serialize cache: {e}"))?;
         drop(data);
-
-        let tmp = path.with_extension("tmp");
-        std::fs::write(&tmp, &serialized)
-            .map_err(|e| format!("Failed to write cache tmp {}: {e}", tmp.display()))?;
-        std::fs::rename(&tmp, path)
-            .map_err(|e| format!("Failed to rename cache {}: {e}", path.display()))?;
-
+        std::fs::write(path, serialized)
+            .map_err(|e| format!("Failed to write cache {}: {e}", path.display()))?;
         let mut dirty = self.dirty.lock().unwrap_or_else(|e| e.into_inner());
         *dirty = false;
         Ok(true)
@@ -219,32 +260,27 @@ impl PersistentCache {
 }
 
 #[derive(Serialize)]
+struct LaunchApplicationResult {
+    pid: u32,
+    executable: String,
+}
+
+#[derive(Serialize)]
 struct DesktopRuntimeInfo {
     os: String,
     arch: String,
     local_api_port: Option<u16>,
-}
-
-#[derive(Deserialize)]
-struct LocalApiProxyRequest {
-    method: String,
-    path: String,
-    headers: HashMap<String, String>,
-    body: Option<Vec<u8>>,
+    distribution_mode: String,
 }
 
 #[derive(Serialize)]
-struct LocalApiProxyResponse {
-    status: u16,
-    headers: HashMap<String, String>,
-    body: Vec<u8>,
+struct ProjectVUpdateInfo {
+    version: String,
+    current_version: String,
+    notes: Option<String>,
+    published_at: Option<String>,
 }
 
-#[derive(Serialize)]
-struct SecretValidationResponse {
-    status: u16,
-    payload: Value,
-}
 
 fn save_vault(cache: &HashMap<String, String>) -> Result<(), String> {
     let json =
@@ -271,145 +307,93 @@ fn require_trusted_window(label: &str) -> Result<(), String> {
     }
 }
 
-fn can_manage_renderer_secrets(label: &str) -> bool {
-    SECRET_MANAGEMENT_WINDOWS.contains(&label)
-}
-
-// The shared desktop secret is host-managed. All other supported vault keys
-// may be configured by the first-party main/settings renderers.
-fn is_renderer_managed_secret_key(key: &str) -> bool {
-    key != DESKTOP_SHARED_SECRET_KEY && SUPPORTED_SECRET_KEYS.contains(&key)
-}
-
-fn require_secret_management_window(label: &str) -> Result<(), String> {
-    if can_manage_renderer_secrets(label) {
-        Ok(())
+#[cfg(windows)]
+fn recognize_windows_speech_blocking(language: &str) -> Result<String, String> {
+    let safe_language: String = language
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric() || *character == '-')
+        .take(24)
+        .collect();
+    let culture = if safe_language.is_empty() { "en-US" } else { safe_language.as_str() };
+    let script = format!(
+        r#"$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Speech
+$culture = [System.Globalization.CultureInfo]::GetCultureInfo('{culture}')
+try {{ $recognizer = New-Object System.Speech.Recognition.SpeechRecognitionEngine($culture) }}
+catch {{ $recognizer = New-Object System.Speech.Recognition.SpeechRecognitionEngine }}
+$recognizer.SetInputToDefaultAudioDevice()
+$recognizer.LoadGrammar((New-Object System.Speech.Recognition.DictationGrammar))
+$result = $recognizer.Recognize([TimeSpan]::FromSeconds(15))
+if ($null -ne $result) {{ [Console]::Out.Write($result.Text) }}"#,
+    );
+    let mut command = Command::new("powershell.exe");
+    command.args([
+        "-NoProfile",
+        "-NonInteractive",
+        "-STA",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        &script,
+    ]);
+    command.creation_flags(0x08000000);
+    let output = command
+        .output()
+        .map_err(|error| format!("Failed to start Windows speech recognition: {error}"))?;
+    if !output.status.success() {
+        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if detail.is_empty() {
+            "Windows speech recognition failed. Confirm that a microphone and matching speech language are installed.".to_string()
+        } else {
+            format!("Windows speech recognition failed: {detail}")
+        });
+    }
+    let transcript = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if transcript.is_empty() {
+        Err("No speech was detected before the fifteen-second timeout.".to_string())
     } else {
-        Err(format!("Secret management not allowed from window '{label}'"))
+        Ok(transcript)
     }
 }
 
-fn configured_renderer_secret_keys(secrets: &HashMap<String, String>) -> Vec<String> {
-    secrets
-        .keys()
-        .filter(|key| is_renderer_managed_secret_key(key))
-        .cloned()
-        .collect()
-}
-
-fn normalized_local_api_proxy_path(path: &str) -> Result<String, String> {
-    let url = Url::parse(&format!("http://127.0.0.1{path}"))
-        .map_err(|_| "Invalid local API path".to_string())?;
-    if url.host_str() != Some("127.0.0.1") || url.fragment().is_some() {
-        return Err("Invalid local API path".to_string());
+#[tauri::command]
+async fn recognize_windows_speech(webview: Webview, language: Option<String>) -> Result<String, String> {
+    require_trusted_window(webview.label())?;
+    #[cfg(windows)]
+    {
+        let language = language.unwrap_or_else(|| "en-US".to_string());
+        return tauri::async_runtime::spawn_blocking(move || recognize_windows_speech_blocking(&language))
+            .await
+            .map_err(|error| format!("Windows speech recognition task failed: {error}"))?;
     }
-    Ok(match url.query() {
-        Some(query) => format!("{}?{query}", url.path()),
-        None => url.path().to_string(),
-    })
-}
-
-fn normalized_local_api_proxy_path_is_allowed(normalized_path: &str) -> bool {
-    let route = normalized_path.split('?').next().unwrap_or(normalized_path);
-    route.starts_with("/api/")
-        && !route.starts_with("//")
-        && (!route.starts_with("/api/local-")
-            || matches!(route, "/api/local-debug-toggle" | "/api/local-traffic-log"))
-        // Keep the denylist explicit as a guard against accidentally widening
-        // the local-* exception above during future maintenance.
-        && route != "/api/local-env-update"
-        && route != "/api/local-env-update-batch"
-        && route != "/api/local-validate-secret"
-}
-
-#[cfg(test)]
-fn local_api_proxy_path_is_allowed(path: &str) -> bool {
-    normalized_local_api_proxy_path(path)
-        .is_ok_and(|normalized| normalized_local_api_proxy_path_is_allowed(&normalized))
-}
-
-async fn send_local_api_request(
-    state: &LocalApiState,
-    method: &str,
-    path: &str,
-    headers: &HashMap<String, String>,
-    body: Option<Vec<u8>>,
-) -> Result<LocalApiProxyResponse, String> {
-    if body.as_ref().is_some_and(|body| body.len() > MAX_LOCAL_API_PROXY_BYTES) {
-        return Err("Local API request body exceeds the proxy limit".to_string());
+    #[cfg(not(windows))]
+    {
+        let _ = language;
+        Err("Native speech recognition fallback is currently available only on Windows.".to_string())
     }
-    let port = state
-        .port
-        .lock()
-        .map_err(|_| "Failed to lock local API port".to_string())?
-        .ok_or_else(|| "Local API sidecar is not ready".to_string())?;
+}
+
+#[tauri::command]
+fn get_local_api_token(webview: Webview, state: tauri::State<'_, LocalApiState>) -> Result<String, String> {
+    require_trusted_window(webview.label())?;
     let token = state
         .token
         .lock()
-        .map_err(|_| "Failed to lock local API token".to_string())?
+        .map_err(|_| "Failed to lock local API token".to_string())?;
+    token
         .clone()
-        .ok_or_else(|| "Local API token is unavailable".to_string())?;
-    let method = reqwest::Method::from_bytes(method.as_bytes())
-        .map_err(|_| "Unsupported local API method".to_string())?;
-    let url = Url::parse(&format!("http://127.0.0.1:{port}{path}"))
-        .map_err(|_| "Invalid local API path".to_string())?;
-    let mut request = state.http_client.request(method, url).bearer_auth(token);
-    for (name, value) in headers {
-        if !name.eq_ignore_ascii_case("authorization")
-            && !name.eq_ignore_ascii_case("host")
-            && !name.eq_ignore_ascii_case("content-length")
-        {
-            request = request.header(name, value);
-        }
-    }
-    if let Some(body) = body {
-        request = request.body(body);
-    }
-    let response = request
-        .send()
-        .await
-        .map_err(|error| format!("Local API request failed: {error}"))?;
-    let status = response.status().as_u16();
-    let headers = response
-        .headers()
-        .iter()
-        .filter_map(|(name, value)| value.to_str().ok().map(|value| (name.to_string(), value.to_string())))
-        .collect();
-    let body = response
-        .bytes()
-        .await
-        .map_err(|error| format!("Failed to read local API response: {error}"))?
-        .to_vec();
-    if body.len() > MAX_LOCAL_API_PROXY_BYTES {
-        return Err("Local API response exceeds the proxy limit".to_string());
-    }
-    Ok(LocalApiProxyResponse { status, headers, body })
+        .ok_or_else(|| "Token not generated".to_string())
 }
 
 #[tauri::command]
-async fn proxy_local_api_request(
-    webview: Webview,
-    request: LocalApiProxyRequest,
-    state: tauri::State<'_, LocalApiState>,
-) -> Result<LocalApiProxyResponse, String> {
-    require_secret_management_window(webview.label())?;
-    let normalized_path = normalized_local_api_proxy_path(&request.path)?;
-    let route = normalized_path.split('?').next().unwrap_or(&normalized_path);
-    if !normalized_local_api_proxy_path_is_allowed(&normalized_path) {
-        return Err(format!("Local API route is not proxyable: {route}"));
-    }
-    send_local_api_request(&state, &request.method, &normalized_path, &request.headers, request.body).await
-}
-
-#[tauri::command]
-fn get_desktop_runtime_info(webview: Webview, state: tauri::State<'_, LocalApiState>) -> Result<DesktopRuntimeInfo, String> {
-    require_trusted_window(webview.label())?;
+fn get_desktop_runtime_info(state: tauri::State<'_, LocalApiState>) -> DesktopRuntimeInfo {
     let port = state.port.lock().ok().and_then(|g| *g);
-    Ok(DesktopRuntimeInfo {
+    DesktopRuntimeInfo {
         os: env::consts::OS.to_string(),
         arch: env::consts::ARCH.to_string(),
         local_api_port: port,
-    })
+        distribution_mode: distribution_mode().to_string(),
+    }
 }
 
 #[tauri::command]
@@ -421,135 +405,120 @@ fn get_local_api_port(webview: Webview, state: tauri::State<'_, LocalApiState>) 
 }
 
 #[tauri::command]
-fn list_configured_secret_keys(
+fn list_supported_secret_keys() -> Vec<String> {
+    SUPPORTED_SECRET_KEYS
+        .iter()
+        .map(|key| (*key).to_string())
+        .collect()
+}
+
+#[tauri::command]
+fn get_secret(
     webview: Webview,
+    key: String,
     cache: tauri::State<'_, SecretsCache>,
-) -> Result<Vec<String>, String> {
-    require_secret_management_window(webview.label())?;
+) -> Result<Option<String>, String> {
+    require_trusted_window(webview.label())?;
+    if !SUPPORTED_SECRET_KEYS.contains(&key.as_str()) {
+        return Err(format!("Unsupported secret key: {key}"));
+    }
     let secrets = cache
         .secrets
         .lock()
         .map_err(|_| "Lock poisoned".to_string())?;
-    Ok(configured_renderer_secret_keys(&secrets))
+    Ok(secrets.get(&key).cloned())
 }
 
-fn update_renderer_secret_cache(
-    cache: &SecretsCache,
-    key: &str,
-    value: Option<&str>,
+#[tauri::command]
+fn get_all_secrets(webview: Webview, cache: tauri::State<'_, SecretsCache>) -> Result<HashMap<String, String>, String> {
+    require_trusted_window(webview.label())?;
+    Ok(cache
+        .secrets
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone())
+}
+
+#[tauri::command]
+fn set_secret(
+    webview: Webview,
+    key: String,
+    value: String,
+    cache: tauri::State<'_, SecretsCache>,
 ) -> Result<(), String> {
+    require_trusted_window(webview.label())?;
+    if !SUPPORTED_SECRET_KEYS.contains(&key.as_str()) {
+        return Err(format!("Unsupported secret key: {key}"));
+    }
     let mut secrets = cache
         .secrets
         .lock()
         .map_err(|_| "Lock poisoned".to_string())?;
-    // Build proposed state, persist first, then commit to cache.
+    let trimmed = value.trim().to_string();
+    // Build proposed state, persist first, then commit to cache
     let mut proposed = secrets.clone();
-    match value {
-        Some(value) => {
-            proposed.insert(key.to_string(), value.to_string());
-        }
-        None => {
-            proposed.remove(key);
-        }
+    if trimmed.is_empty() {
+        proposed.remove(&key);
+    } else {
+        proposed.insert(key, trimmed);
     }
     save_vault(&proposed)?;
     *secrets = proposed;
     Ok(())
 }
 
-async fn sync_renderer_secret_to_sidecar(
-    state: &LocalApiState,
-    key: &str,
-    value: Option<&str>,
-) {
-    let body = match serde_json::to_vec(&serde_json::json!({ "key": key, "value": value })) {
-        Ok(body) => body,
-        Err(error) => {
-            eprintln!("[tauri] failed to serialize local secret sync for {key}: {error}");
-            return;
-        }
+#[tauri::command]
+fn delete_secret(webview: Webview, key: String, cache: tauri::State<'_, SecretsCache>) -> Result<(), String> {
+    require_trusted_window(webview.label())?;
+    if !SUPPORTED_SECRET_KEYS.contains(&key.as_str()) {
+        return Err(format!("Unsupported secret key: {key}"));
+    }
+    let mut secrets = cache
+        .secrets
+        .lock()
+        .map_err(|_| "Lock poisoned".to_string())?;
+    let mut proposed = secrets.clone();
+    proposed.remove(&key);
+    save_vault(&proposed)?;
+    *secrets = proposed;
+    Ok(())
+}
+
+fn portable_root() -> Option<PathBuf> {
+    let executable = env::current_exe().ok()?;
+    let directory = executable.parent()?.to_path_buf();
+    if directory.join("portable.flag").exists() || env::var("PROJECT_V_PORTABLE").ok().as_deref() == Some("1") {
+        Some(directory)
+    } else {
+        None
+    }
+}
+
+fn distribution_mode() -> &'static str {
+    if cfg!(debug_assertions) {
+        "development"
+    } else if portable_root().is_some() {
+        "portable"
+    } else {
+        "installed"
+    }
+}
+
+fn project_v_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = if let Some(root) = portable_root() {
+        root.join("ProjectVData")
+    } else {
+        app.path()
+            .app_data_dir()
+            .map_err(|e| format!("Failed to resolve app data dir: {e}"))?
     };
-    let headers = HashMap::from([(String::from("Content-Type"), String::from("application/json"))]);
-    match send_local_api_request(state, "POST", "/api/local-env-update", &headers, Some(body)).await {
-        Ok(response) if (200..300).contains(&response.status) => {}
-        Ok(response) => eprintln!(
-            "[tauri] local secret sync for {key} returned HTTP {}",
-            response.status
-        ),
-        Err(error) => eprintln!("[tauri] local secret sync failed for {key}: {error}"),
-    }
-}
-
-#[tauri::command]
-async fn set_secret(
-    webview: Webview,
-    key: String,
-    value: String,
-    cache: tauri::State<'_, SecretsCache>,
-    state: tauri::State<'_, LocalApiState>,
-) -> Result<(), String> {
-    require_secret_management_window(webview.label())?;
-    if !is_renderer_managed_secret_key(&key) {
-        return Err(format!("Unsupported secret key: {key}"));
-    }
-    let value = (!value.trim().is_empty()).then(|| value.trim().to_string());
-    update_renderer_secret_cache(&cache, &key, value.as_deref())?;
-    sync_renderer_secret_to_sidecar(&state, &key, value.as_deref()).await;
-    Ok(())
-}
-
-#[tauri::command]
-async fn delete_secret(
-    webview: Webview,
-    key: String,
-    cache: tauri::State<'_, SecretsCache>,
-    state: tauri::State<'_, LocalApiState>,
-) -> Result<(), String> {
-    require_secret_management_window(webview.label())?;
-    if !is_renderer_managed_secret_key(&key) {
-        return Err(format!("Unsupported secret key: {key}"));
-    }
-    update_renderer_secret_cache(&cache, &key, None)?;
-    sync_renderer_secret_to_sidecar(&state, &key, None).await;
-    Ok(())
-}
-
-#[tauri::command]
-async fn validate_secret_with_sidecar(
-    webview: Webview,
-    key: String,
-    value: String,
-    context: HashMap<String, String>,
-    state: tauri::State<'_, LocalApiState>,
-) -> Result<SecretValidationResponse, String> {
-    require_secret_management_window(webview.label())?;
-    if !is_renderer_managed_secret_key(&key) {
-        return Err(format!("Unsupported secret key: {key}"));
-    }
-    let body = serde_json::to_vec(&serde_json::json!({ "key": key, "value": value, "context": context }))
-        .map_err(|error| format!("Failed to serialize secret validation: {error}"))?;
-    let headers = HashMap::from([(String::from("Content-Type"), String::from("application/json"))]);
-    let response = send_local_api_request(&state, "POST", "/api/local-validate-secret", &headers, Some(body)).await?;
-    let payload = serde_json::from_slice(&response.body).unwrap_or_else(|_| {
-        serde_json::json!({
-            "valid": false,
-            "message": format!("Secret validation returned HTTP {} with an invalid response", response.status),
-        })
-    });
-    Ok(SecretValidationResponse {
-        status: response.status,
-        payload,
-    })
+    fs::create_dir_all(&dir)
+        .map_err(|e| format!("Failed to create app data directory {}: {e}", dir.display()))?;
+    Ok(dir)
 }
 
 fn cache_file_path(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to resolve app data dir: {e}"))?;
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| format!("Failed to create app data directory {}: {e}", dir.display()))?;
-    Ok(dir.join("persistent-cache.json"))
+    Ok(project_v_data_dir(app)?.join("persistent-cache.json"))
 }
 
 #[tauri::command]
@@ -558,59 +527,8 @@ fn read_cache_entry(webview: Webview, cache: tauri::State<'_, PersistentCache>, 
     Ok(cache.get(&key))
 }
 
-const MAX_FLUSH_RETRIES: u32 = 5;
-
-fn schedule_debounced_flush(cache: &PersistentCache, app: &AppHandle) {
-    {
-        let mut gen = cache.generation.lock().unwrap_or_else(|e| e.into_inner());
-        *gen += 1;
-    }
-    let should_spawn = {
-        let mut sched = cache.flush_scheduled.lock().unwrap_or_else(|e| e.into_inner());
-        if *sched {
-            false
-        } else {
-            *sched = true;
-            true
-        }
-    };
-    if should_spawn {
-        let handle = app.app_handle().clone();
-        std::thread::spawn(move || {
-            let mut retries = 0u32;
-            loop {
-                std::thread::sleep(std::time::Duration::from_secs(2));
-                let Some(c) = handle.try_state::<PersistentCache>() else { break };
-                let Ok(path) = cache_file_path(&handle) else { break };
-                let gen_before = *c.generation.lock().unwrap_or_else(|e| e.into_inner());
-                match c.flush(&path) {
-                    Ok(_) => {
-                        retries = 0;
-                        let gen_after = *c.generation.lock().unwrap_or_else(|e| e.into_inner());
-                        if gen_after > gen_before {
-                            continue;
-                        }
-                        *c.flush_scheduled.lock().unwrap_or_else(|e| e.into_inner()) = false;
-                        break;
-                    }
-                    Err(e) => {
-                        retries += 1;
-                        eprintln!("[cache] flush error ({retries}/{MAX_FLUSH_RETRIES}): {e}");
-                        if retries >= MAX_FLUSH_RETRIES {
-                            eprintln!("[cache] giving up after {MAX_FLUSH_RETRIES} failures");
-                            *c.flush_scheduled.lock().unwrap_or_else(|e| e.into_inner()) = false;
-                            break;
-                        }
-                        continue;
-                    }
-                }
-            }
-        });
-    }
-}
-
 #[tauri::command]
-fn delete_cache_entry(webview: Webview, app: AppHandle, cache: tauri::State<'_, PersistentCache>, key: String) -> Result<(), String> {
+fn delete_cache_entry(webview: Webview, cache: tauri::State<'_, PersistentCache>, key: String) -> Result<(), String> {
     require_trusted_window(webview.label())?;
     {
         let mut data = cache.data.lock().unwrap_or_else(|e| e.into_inner());
@@ -620,41 +538,16 @@ fn delete_cache_entry(webview: Webview, app: AppHandle, cache: tauri::State<'_, 
         let mut dirty = cache.dirty.lock().unwrap_or_else(|e| e.into_inner());
         *dirty = true;
     }
-    schedule_debounced_flush(&cache, &app);
-    Ok(())
-}
-
-#[tauri::command]
-fn delete_cache_entries_by_prefix(webview: Webview, app: AppHandle, cache: tauri::State<'_, PersistentCache>, prefix: String) -> Result<(), String> {
-    require_trusted_window(webview.label())?;
-    let suffix = prefix
-        .strip_prefix("breaker:")
-        .ok_or_else(|| "delete_cache_entries_by_prefix only accepts breaker: prefixes".to_string())?;
-    if suffix.is_empty() || suffix.chars().all(|ch| ch == ':') {
-        return Err("delete_cache_entries_by_prefix requires a specific breaker: prefix".to_string());
-    }
-    let removed_any = {
-        let mut data = cache.data.lock().unwrap_or_else(|e| e.into_inner());
-        let before = data.len();
-        data.retain(|key, _| !key.starts_with(&prefix));
-        data.len() != before
-    };
-    if removed_any {
-        {
-            let mut dirty = cache.dirty.lock().unwrap_or_else(|e| e.into_inner());
-            *dirty = true;
-        }
-        schedule_debounced_flush(&cache, &app);
-    }
+    // Disk flush deferred to exit handler (cache.flush) — avoids blocking main thread
     Ok(())
 }
 
 #[tauri::command]
 fn write_cache_entry(webview: Webview, app: AppHandle, cache: tauri::State<'_, PersistentCache>, key: String, value: String) -> Result<(), String> {
     require_trusted_window(webview.label())?;
-    validate_cache_write_sizes(&key, &value)?;
     let parsed_value: Value = serde_json::from_str(&value)
         .map_err(|e| format!("Invalid cache payload JSON: {e}"))?;
+    let _write_guard = cache.write_lock.lock().unwrap_or_else(|e| e.into_inner());
     {
         let mut data = cache.data.lock().unwrap_or_else(|e| e.into_inner());
         data.insert(key, parsed_value);
@@ -663,15 +556,30 @@ fn write_cache_entry(webview: Webview, app: AppHandle, cache: tauri::State<'_, P
         let mut dirty = cache.dirty.lock().unwrap_or_else(|e| e.into_inner());
         *dirty = true;
     }
-    schedule_debounced_flush(&cache, &app);
+
+    // Flush synchronously under write lock so concurrent writes cannot reorder.
+    let path = cache_file_path(&app)?;
+    let data = cache.data.lock().unwrap_or_else(|e| e.into_inner());
+    let serialized = serde_json::to_string(&Value::Object(data.clone()))
+        .map_err(|e| format!("Failed to serialize cache: {e}"))?;
+    drop(data);
+    std::fs::write(&path, &serialized)
+        .map_err(|e| format!("Failed to write cache {}: {e}", path.display()))?;
+    {
+        let mut dirty = cache.dirty.lock().unwrap_or_else(|e| e.into_inner());
+        *dirty = false;
+    }
     Ok(())
 }
 
 fn logs_dir_path(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_log_dir()
-        .map_err(|e| format!("Failed to resolve app log dir: {e}"))?;
+    let dir = if let Some(root) = portable_root() {
+        root.join("ProjectVData").join("logs")
+    } else {
+        app.path()
+            .app_log_dir()
+            .map_err(|e| format!("Failed to resolve app log dir: {e}"))?
+    };
     fs::create_dir_all(&dir)
         .map_err(|e| format!("Failed to create app log dir {}: {e}", dir.display()))?;
     Ok(dir)
@@ -702,28 +610,52 @@ fn append_desktop_log(app: &AppHandle, level: &str, message: &str) {
 }
 
 fn open_in_shell(arg: &str) -> Result<(), String> {
-    // Linux keeps its own path: spawn xdg-open directly with LD_* scrubbed
-    // (library-injection hardening that a generic opener would drop).
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut cmd = Command::new("open");
+        cmd.arg(arg);
+        cmd
+    };
+
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut cmd = Command::new("explorer");
+        cmd.arg(arg);
+        cmd
+    };
+
     #[cfg(all(unix, not(target_os = "macos")))]
-    {
+    let mut command = {
         let mut cmd = Command::new("xdg-open");
         cmd.arg(arg);
         cmd.env_remove("LD_LIBRARY_PATH");
         cmd.env_remove("LD_PRELOAD");
-        cmd.spawn()
+        cmd
+    };
+
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to open {}: {e}", arg))
+}
+
+fn open_url_in_shell(arg: &str) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        // `explorer.exe <url>` can display an "Application not found" dialog on
+        // systems whose HTTP association is unusual. FileProtocolHandler asks
+        // Windows to resolve the registered HTTPS handler directly.
+        return Command::new("rundll32.exe")
+            .arg("url.dll,FileProtocolHandler")
+            .arg(arg)
+            .spawn()
             .map(|_| ())
-            .map_err(|e| format!("Failed to open {}: {e}", arg))
+            .map_err(|error| format!("Failed to open {arg}: {error}"));
     }
 
-    // macOS + Windows: `opener` opens the target with the OS default handler
-    // via `/usr/bin/open` (macOS) and `ShellExecuteW` (Windows). It NEVER routes
-    // through `cmd.exe`, so a URL containing shell metacharacters (`&`, `|`, …)
-    // is passed as a single argument and cannot inject commands. This is the fix
-    // for GHSA-2x6r-qq54-mmhr: the old Windows branch ran `cmd /c start "" <url>`
-    // with the URL unquoted, so `https://x/?a=1&calc` executed `calc` on click.
-    #[cfg(not(all(unix, not(target_os = "macos"))))]
+    #[cfg(not(target_os = "windows"))]
     {
-        opener::open(arg).map_err(|e| format!("Failed to open {}: {e}", arg))
+        open_in_shell(arg)
     }
 }
 
@@ -731,15 +663,181 @@ fn open_path_in_shell(path: &Path) -> Result<(), String> {
     open_in_shell(&path.to_string_lossy())
 }
 
+fn picker_output(mut command: Command, description: &str) -> Result<Option<String>, String> {
+    let output = command
+        .output()
+        .map_err(|error| format!("Failed to open {description}: {error}"))?;
+    if !output.status.success() {
+        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if detail.is_empty() {
+            format!("{description} closed without a selection")
+        } else {
+            format!("{description} failed: {detail}")
+        });
+    }
+    let selected = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok(if selected.is_empty() { None } else { Some(selected) })
+}
+
 #[tauri::command]
-fn open_url(webview: Webview, url: String) -> Result<(), String> {
+fn select_application_executable(webview: Webview) -> Result<Option<String>, String> {
     require_trusted_window(webview.label())?;
+
+    #[cfg(windows)]
+    {
+        let script = r#"Add-Type -AssemblyName System.Windows.Forms
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$dialog = New-Object System.Windows.Forms.OpenFileDialog
+$dialog.Title = 'Select an approved application executable'
+$dialog.Filter = 'Applications (*.exe)|*.exe'
+$dialog.CheckFileExists = $true
+$dialog.Multiselect = $false
+if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dialog.FileName) }"#;
+        let mut command = Command::new("powershell.exe");
+        command.args(["-NoProfile", "-NonInteractive", "-STA", "-ExecutionPolicy", "Bypass", "-Command", script]);
+        command.creation_flags(0x08000000);
+        return picker_output(command, "application picker");
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let mut command = Command::new("osascript");
+        command.args(["-e", "POSIX path of (choose file with prompt \"Select an approved application executable\")"]);
+        return picker_output(command, "application picker");
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let mut command = Command::new("zenity");
+        command.args(["--file-selection", "--title=Select an approved application executable"]);
+        return picker_output(command, "application picker");
+    }
+}
+
+#[tauri::command]
+fn select_launch_handoff_file(webview: Webview) -> Result<Option<String>, String> {
+    require_trusted_window(webview.label())?;
+
+    #[cfg(windows)]
+    {
+        let script = r#"Add-Type -AssemblyName System.Windows.Forms
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$dialog = New-Object System.Windows.Forms.OpenFileDialog
+$dialog.Title = 'Select a file to hand off to the approved application'
+$dialog.Filter = 'All files (*.*)|*.*'
+$dialog.CheckFileExists = $true
+$dialog.Multiselect = $false
+if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dialog.FileName) }"#;
+        let mut command = Command::new("powershell.exe");
+        command.args(["-NoProfile", "-NonInteractive", "-STA", "-ExecutionPolicy", "Bypass", "-Command", script]);
+        command.creation_flags(0x08000000);
+        return picker_output(command, "file picker");
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let mut command = Command::new("osascript");
+        command.args(["-e", "POSIX path of (choose file with prompt \"Select a file to open\")"]);
+        return picker_output(command, "file picker");
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let mut command = Command::new("zenity");
+        command.args(["--file-selection", "--title=Select a file to open"]);
+        return picker_output(command, "file picker");
+    }
+}
+
+fn canonical_existing_file(raw: &str, label: &str) -> Result<PathBuf, String> {
+    if raw.trim().is_empty() {
+        return Err(format!("{label} is required"));
+    }
+    let path = fs::canonicalize(PathBuf::from(raw.trim()))
+        .map_err(|error| format!("Unable to resolve {label}: {error}"))?;
+    let metadata = fs::metadata(&path)
+        .map_err(|error| format!("Unable to inspect {label}: {error}"))?;
+    if !metadata.is_file() {
+        return Err(format!("{label} must be a file"));
+    }
+    Ok(path)
+}
+
+#[tauri::command]
+fn launch_approved_application(
+    webview: Webview,
+    path: String,
+    arguments: Vec<String>,
+    working_directory: Option<String>,
+    handoff: Option<String>,
+) -> Result<LaunchApplicationResult, String> {
+    require_trusted_window(webview.label())?;
+    let executable = canonical_existing_file(&path, "application executable")?;
+
+    #[cfg(windows)]
+    {
+        let extension = executable.extension().and_then(|value| value.to_str()).unwrap_or_default();
+        if !extension.eq_ignore_ascii_case("exe") {
+            return Err("Only .exe application files can be registered on Windows".to_string());
+        }
+        let filename = executable.file_name().and_then(|value| value.to_str()).unwrap_or_default().to_ascii_lowercase();
+        let blocked_hosts = [
+            "cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe",
+            "mshta.exe", "rundll32.exe", "regsvr32.exe",
+        ];
+        if blocked_hosts.contains(&filename.as_str()) {
+            return Err("Command shells and Windows script hosts cannot be registered in Launch Deck".to_string());
+        }
+    }
+
+    if arguments.len() > 32 || arguments.iter().any(|argument| argument.len() > 2048 || argument.contains('\0')) {
+        return Err("Application arguments exceeded the safe Launch Deck limits".to_string());
+    }
+
+    let mut command = Command::new(&executable);
+    command.args(arguments.iter());
+
+    if let Some(value) = handoff.filter(|value| !value.trim().is_empty()) {
+        let trimmed = value.trim();
+        if let Ok(url) = Url::parse(trimmed) {
+            let local_http = url.scheme() == "http"
+                && matches!(url.host_str(), Some("localhost") | Some("127.0.0.1") | Some("::1"));
+            if url.scheme() != "https" && !local_http {
+                return Err("Only HTTPS URL handoffs are allowed (HTTP only for localhost)".to_string());
+            }
+            command.arg(url.as_str());
+        } else {
+            let file = canonical_existing_file(trimmed, "handoff file")?;
+            command.arg(file);
+        }
+    }
+
+    if let Some(directory) = working_directory.filter(|value| !value.trim().is_empty()) {
+        let resolved = fs::canonicalize(PathBuf::from(directory.trim()))
+            .map_err(|error| format!("Unable to resolve working directory: {error}"))?;
+        if !resolved.is_dir() {
+            return Err("Working directory must be a directory".to_string());
+        }
+        command.current_dir(resolved);
+    }
+
+    let child = command
+        .spawn()
+        .map_err(|error| format!("Failed to start {}: {error}", executable.display()))?;
+    Ok(LaunchApplicationResult {
+        pid: child.id(),
+        executable: executable.display().to_string(),
+    })
+}
+
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
     let parsed = Url::parse(&url).map_err(|_| "Invalid URL".to_string())?;
 
     match parsed.scheme() {
-        "https" => open_in_shell(parsed.as_str()),
+        "https" => open_url_in_shell(parsed.as_str()),
         "http" => match parsed.host_str() {
-            Some("localhost") | Some("127.0.0.1") => open_in_shell(parsed.as_str()),
+            Some("localhost") | Some("127.0.0.1") => open_url_in_shell(parsed.as_str()),
             _ => Err("Only https:// URLs are allowed (http:// only for localhost)".to_string()),
         },
         _ => Err("Only https:// URLs are allowed (http:// only for localhost)".to_string()),
@@ -763,26 +861,22 @@ fn open_sidecar_log_impl(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
-fn open_logs_folder(webview: Webview, app: AppHandle) -> Result<String, String> {
-    require_trusted_window(webview.label())?;
+fn open_logs_folder(app: AppHandle) -> Result<String, String> {
     open_logs_folder_impl(&app).map(|path| path.display().to_string())
 }
 
 #[tauri::command]
-fn open_sidecar_log_file(webview: Webview, app: AppHandle) -> Result<String, String> {
-    require_trusted_window(webview.label())?;
+fn open_sidecar_log_file(app: AppHandle) -> Result<String, String> {
     open_sidecar_log_impl(&app).map(|path| path.display().to_string())
 }
 
 #[tauri::command]
-async fn open_settings_window_command(webview: Webview, app: AppHandle) -> Result<(), String> {
-    require_trusted_window(webview.label())?;
+async fn open_settings_window_command(app: AppHandle) -> Result<(), String> {
     open_settings_window(&app)
 }
 
 #[tauri::command]
-fn close_settings_window(webview: Webview, app: AppHandle) -> Result<(), String> {
-    require_trusted_window(webview.label())?;
+fn close_settings_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("settings") {
         window
             .close()
@@ -791,43 +885,39 @@ fn close_settings_window(webview: Webview, app: AppHandle) -> Result<(), String>
     Ok(())
 }
 
+/// Preserves the development-tools shortcut after removing the native
+/// File/Edit/Help menu. Release builds intentionally reject this command.
+#[tauri::command]
+fn toggle_developer_tools(window: WebviewWindow) -> Result<bool, String> {
+    require_trusted_window(window.label())?;
+
+    #[cfg(feature = "devtools")]
+    {
+        if window.is_devtools_open() {
+            window.close_devtools();
+            Ok(false)
+        } else {
+            window.open_devtools();
+            Ok(true)
+        }
+    }
+
+    #[cfg(not(feature = "devtools"))]
+    {
+        Err("Developer tools are available only in desktop development builds".to_string())
+    }
+}
+
 #[tauri::command]
 async fn open_live_channels_window_command(
-    webview: Webview,
     app: AppHandle,
     base_url: Option<String>,
 ) -> Result<(), String> {
-    require_trusted_window(webview.label())?;
-    if let Some(ref url) = base_url {
-        if !url.is_empty() {
-            let parsed = Url::parse(url).map_err(|_| "Invalid base URL".to_string())?;
-            // The live-channels webview holds trusted-window IPC privileges
-            // (persistent-cache read/write, port discovery, open_url), so its
-            // origin must be first-party — "any https" would hand those to a
-            // remote page if the main window is ever compromised.
-            let allowed = match parsed.scheme() {
-                "http" => matches!(parsed.host_str(), Some("localhost") | Some("127.0.0.1")),
-                "https" => match parsed.host_str() {
-                    Some(host) => {
-                        host == "worldmonitor.app" || host.ends_with(".worldmonitor.app")
-                    }
-                    None => false,
-                },
-                _ => false,
-            };
-            if !allowed {
-                return Err(
-                    "base_url must be worldmonitor.app (or localhost over http)".to_string(),
-                );
-            }
-        }
-    }
     open_live_channels_window(&app, base_url)
 }
 
 #[tauri::command]
-fn close_live_channels_window(webview: Webview, app: AppHandle) -> Result<(), String> {
-    require_trusted_window(webview.label())?;
+fn close_live_channels_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("live-channels") {
         window
             .close()
@@ -836,10 +926,335 @@ fn close_live_channels_window(webview: Webview, app: AppHandle) -> Result<(), St
     Ok(())
 }
 
+fn open_project_v_workspace_window(
+    app: &AppHandle,
+    label: &str,
+    page: &str,
+    title: &str,
+    base_url: Option<String>,
+    query: Option<String>,
+) -> Result<(), String> {
+    let query_string = query.unwrap_or_default();
+    if let Some(window) = app.get_webview_window(label) {
+        if query_string.trim().is_empty() {
+            let _ = window.show();
+            window.set_focus().map_err(|e| format!("Failed to focus {title}: {e}"))?;
+            return Ok(());
+        }
+        let _ = window.close();
+    }
+
+    let suffix = if query_string.trim().is_empty() {
+        String::new()
+    } else {
+        format!("?{}", query_string.trim_start_matches('?'))
+    };
+    let url = match base_url {
+        Some(origin) if !origin.trim().is_empty() => {
+            let full = format!("{}/{}{}", origin.trim_end_matches('/'), page, suffix);
+            WebviewUrl::External(Url::parse(&full).map_err(|_| format!("Invalid {title} development URL"))?)
+        }
+        _ => WebviewUrl::App(format!("{page}{suffix}").into()),
+    };
+
+    let window = WebviewWindowBuilder::new(app, label, url)
+        .title(title)
+        .inner_size(1420.0, 900.0)
+        .min_inner_size(980.0, 680.0)
+        .resizable(true)
+        .background_color(tauri::webview::Color(7, 6, 6, 255))
+        .build()
+        .map_err(|e| format!("Failed to create {title}: {e}"))?;
+
+    #[cfg(not(target_os = "macos"))]
+    let _ = window.remove_menu();
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_case_desk_window(
+    app: AppHandle,
+    base_url: Option<String>,
+    query: Option<String>,
+) -> Result<(), String> {
+    open_project_v_workspace_window(&app, "case-desk", "case-desk.html", "Project V // Case Desk", base_url, query)
+}
+
+#[tauri::command]
+fn close_case_desk_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("case-desk") {
+        window.close().map_err(|e| format!("Failed to close Case Desk: {e}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_data_desk_window(
+    app: AppHandle,
+    base_url: Option<String>,
+    query: Option<String>,
+) -> Result<(), String> {
+    open_project_v_workspace_window(&app, "data-desk", "data-desk.html", "Project V // Data Desk", base_url, query)
+}
+
+#[tauri::command]
+fn close_data_desk_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("data-desk") {
+        window.close().map_err(|e| format!("Failed to close Data Desk: {e}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_map_operations_window(
+    app: AppHandle,
+    base_url: Option<String>,
+    query: Option<String>,
+) -> Result<(), String> {
+    open_project_v_workspace_window(&app, "map-operations", "map-operations.html", "Project V // Map Operations", base_url, query)
+}
+
+#[tauri::command]
+fn close_map_operations_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("map-operations") {
+        window.close().map_err(|e| format!("Failed to close Map Operations: {e}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_assistant_desk_window(
+    app: AppHandle,
+    base_url: Option<String>,
+    query: Option<String>,
+) -> Result<(), String> {
+    open_project_v_workspace_window(&app, "assistant-desk", "assistant-desk.html", "Project V // Command Assistant", base_url, query)
+}
+
+#[tauri::command]
+fn close_assistant_desk_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("assistant-desk") {
+        window.close().map_err(|e| format!("Failed to close Command Assistant: {e}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_analysis_room_window(
+    app: AppHandle,
+    base_url: Option<String>,
+    query: Option<String>,
+) -> Result<(), String> {
+    open_project_v_workspace_window(&app, "analysis-room", "analysis-room.html", "Project V // Analysis Room", base_url, query)
+}
+
+#[tauri::command]
+fn close_analysis_room_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("analysis-room") {
+        window.close().map_err(|e| format!("Failed to close Analysis Room: {e}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_launch_desk_window(
+    app: AppHandle,
+    base_url: Option<String>,
+    query: Option<String>,
+) -> Result<(), String> {
+    open_project_v_workspace_window(&app, "launch-desk", "launch-desk.html", "Project V // Launch Desk", base_url, query)
+}
+
+#[tauri::command]
+fn close_launch_desk_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("launch-desk") {
+        window.close().map_err(|e| format!("Failed to close Launch Desk: {e}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_camera_desk_window(
+    app: AppHandle,
+    base_url: Option<String>,
+    query: Option<String>,
+) -> Result<(), String> {
+    open_project_v_workspace_window(&app, "camera-desk", "camera-desk.html", "Project V // Camera Wall", base_url, query)
+}
+
+#[tauri::command]
+fn close_camera_desk_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("camera-desk") {
+        window.close().map_err(|e| format!("Failed to close Camera Wall: {e}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_osint_desk_window(
+    app: AppHandle,
+    base_url: Option<String>,
+    query: Option<String>,
+) -> Result<(), String> {
+    open_project_v_workspace_window(&app, "osint-desk", "osint-desk.html", "Project V // OSINT Desk", base_url, query)
+}
+
+#[tauri::command]
+fn close_osint_desk_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("osint-desk") {
+        window.close().map_err(|e| format!("Failed to close OSINT Desk: {e}"))?;
+    }
+    Ok(())
+}
+
+
+fn validate_phoenix_bridge_endpoint(endpoint: &str) -> Result<Url, String> {
+    let url = Url::parse(endpoint.trim()).map_err(|_| "Invalid Phoenix receiver endpoint".to_string())?;
+    if url.scheme() != "http" {
+        return Err("Phoenix receiver must use local HTTP".to_string());
+    }
+    if !url.username().is_empty() || url.password().is_some() || url.query().is_some() || url.fragment().is_some() {
+        return Err("Phoenix receiver endpoint contains unsupported URL components".to_string());
+    }
+    let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+    if host != "127.0.0.1" && host != "localhost" && host != "::1" {
+        return Err("Phoenix receiver must be loopback-only".to_string());
+    }
+    let port = url.port_or_known_default().unwrap_or(0);
+    if !(1024..=65535).contains(&port) {
+        return Err("Phoenix receiver port must be between 1024 and 65535".to_string());
+    }
+    if url.path() != "/api/watchtower/alert" {
+        return Err("Phoenix receiver path must be /api/watchtower/alert".to_string());
+    }
+    Ok(url)
+}
+
+fn valid_phoenix_pairing_token(token: &str) -> bool {
+    let value = token.trim();
+    (48..=128).contains(&value.len()) && value.chars().all(|ch| ch.is_ascii_hexdigit())
+}
+
+#[tauri::command]
+fn configure_phoenix_bridge(
+    webview: Webview,
+    endpoint: String,
+    token: String,
+    state: tauri::State<'_, PhoenixBridgeSecret>,
+) -> Result<Value, String> {
+    require_trusted_window(webview.label())?;
+    let url = validate_phoenix_bridge_endpoint(&endpoint)?;
+    if !valid_phoenix_pairing_token(&token) {
+        return Err("Phoenix pairing token is invalid".to_string());
+    }
+    state.set(token.trim())?;
+    Ok(serde_json::json!({
+        "ok": true,
+        "paired": true,
+        "endpoint": url.to_string()
+    }))
+}
+
+#[tauri::command]
+fn disconnect_phoenix_bridge(
+    webview: Webview,
+    state: tauri::State<'_, PhoenixBridgeSecret>,
+) -> Result<Value, String> {
+    require_trusted_window(webview.label())?;
+    state.clear()?;
+    Ok(serde_json::json!({ "ok": true, "paired": false }))
+}
+
+#[tauri::command]
+async fn phoenix_bridge_health(
+    webview: Webview,
+    endpoint: String,
+    state: tauri::State<'_, PhoenixBridgeSecret>,
+) -> Result<Value, String> {
+    require_trusted_window(webview.label())?;
+    let mut health_url = validate_phoenix_bridge_endpoint(&endpoint)?;
+    health_url.set_path("/api/health");
+    let paired = state.get()?.is_some();
+    let client = reqwest::Client::builder()
+        .use_native_tls()
+        .build()
+        .map_err(|e| format!("Phoenix bridge HTTP client error: {e}"))?;
+    let response = client
+        .get(health_url)
+        .header("Accept", "application/json")
+        .timeout(std::time::Duration::from_secs(3))
+        .send()
+        .await;
+    match response {
+        Ok(resp) if resp.status().is_success() => Ok(serde_json::json!({
+            "paired": paired,
+            "online": true,
+            "detail": if paired { "PHOENIX RECEIVER ONLINE" } else { "PHOENIX RECEIVER ONLINE · PAIRING REQUIRED" }
+        })),
+        Ok(resp) => Ok(serde_json::json!({
+            "paired": paired,
+            "online": false,
+            "detail": format!("PHOENIX HEALTH HTTP {}", resp.status())
+        })),
+        Err(error) => Ok(serde_json::json!({
+            "paired": paired,
+            "online": false,
+            "detail": format!("PHOENIX OFFLINE · {error}")
+        })),
+    }
+}
+
+#[tauri::command]
+async fn send_phoenix_watchtower_alert(
+    webview: Webview,
+    endpoint: String,
+    alert: Value,
+    state: tauri::State<'_, PhoenixBridgeSecret>,
+) -> Result<Value, String> {
+    require_trusted_window(webview.label())?;
+    let url = validate_phoenix_bridge_endpoint(&endpoint)?;
+    let token = state.get()?.ok_or_else(|| "Phoenix is not paired. Copy receiver pairing JSON from Phoenix and pair Watchtower first.".to_string())?;
+    let title = alert.get("title").and_then(Value::as_str).unwrap_or_default().trim();
+    if title.is_empty() {
+        return Err("Phoenix alert title is required".to_string());
+    }
+    let serialized = serde_json::to_vec(&alert).map_err(|e| format!("Could not encode Phoenix alert: {e}"))?;
+    if serialized.len() > 60 * 1024 {
+        return Err("Phoenix alert payload exceeds the 60 KB Watchtower sender limit".to_string());
+    }
+    let client = reqwest::Client::builder()
+        .use_native_tls()
+        .build()
+        .map_err(|e| format!("Phoenix bridge HTTP client error: {e}"))?;
+    let response = client
+        .post(url)
+        .bearer_auth(token)
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/json")
+        .body(serialized)
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+        .map_err(|e| format!("Phoenix receiver unavailable: {e}"))?;
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    if !status.is_success() {
+        let detail = body.chars().take(240).collect::<String>();
+        return Err(format!("Phoenix rejected alert ({status}){}", if detail.is_empty() { String::new() } else { format!(": {detail}") }));
+    }
+    let response_json = serde_json::from_str::<Value>(&body).unwrap_or_else(|_| serde_json::json!({ "ok": true }));
+    Ok(serde_json::json!({
+        "ok": true,
+        "status": status.as_u16(),
+        "duplicate": response_json.get("duplicate").and_then(Value::as_bool).unwrap_or(false),
+        "message": if response_json.get("duplicate").and_then(Value::as_bool).unwrap_or(false) { "Phoenix already received this alert." } else { "Sent to Phoenix." }
+    }))
+}
+
 /// Fetch JSON from Polymarket Gamma API using native TLS (bypasses Cloudflare JA3 blocking).
 /// Called from frontend when browser CORS and sidecar Node.js TLS both fail.
 #[tauri::command]
-async fn fetch_polymarket(webview: Webview, state: tauri::State<'_, LocalApiState>, path: String, params: String) -> Result<String, String> {
+async fn fetch_polymarket(webview: Webview, path: String, params: String) -> Result<String, String> {
     require_trusted_window(webview.label())?;
     let allowed = ["events", "markets", "tags"];
     let segment = path.trim_start_matches('/');
@@ -847,7 +1262,11 @@ async fn fetch_polymarket(webview: Webview, state: tauri::State<'_, LocalApiStat
         return Err("Invalid Polymarket path".into());
     }
     let url = format!("https://gamma-api.polymarket.com/{}?{}", segment, params);
-    let resp = state.http_client
+    let client = reqwest::Client::builder()
+        .use_native_tls()
+        .build()
+        .map_err(|e| format!("HTTP client error: {e}"))?;
+    let resp = client
         .get(&url)
         .header("Accept", "application/json")
         .timeout(std::time::Duration::from_secs(10))
@@ -871,16 +1290,13 @@ fn open_settings_window(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
-    #[allow(unused_mut)]
-    let mut settings_builder = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
-        .title("World Monitor Settings")
+    let _settings_window = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
+        .title("Project V Watchtower Settings")
         .inner_size(980.0, 600.0)
         .min_inner_size(820.0, 480.0)
         .resizable(true)
-        .background_color(tauri::webview::Color(26, 28, 30, 255));
-    #[cfg(target_os = "macos")]
-    { settings_builder = settings_builder.title_bar_style(tauri::TitleBarStyle::Overlay); }
-    let _settings_window = settings_builder.build()
+        .background_color(tauri::webview::Color(26, 28, 30, 255))
+        .build()
         .map_err(|e| format!("Failed to create settings window: {e}"))?;
 
     // On Windows/Linux, menus are per-window. Remove the inherited app menu
@@ -911,17 +1327,14 @@ fn open_live_channels_window(app: &AppHandle, base_url: Option<String>) -> Resul
         _ => WebviewUrl::App("live-channels.html".into()),
     };
 
-    #[allow(unused_mut)]
-    let mut channels_builder = WebviewWindowBuilder::new(app, "live-channels", url)
-        .title("Channel management - World Monitor")
-        .inner_size(680.0, 760.0)
-        .min_inner_size(520.0, 600.0)
-        .resizable(true)
-        .background_color(tauri::webview::Color(26, 28, 30, 255));
-    #[cfg(target_os = "macos")]
-    { channels_builder = channels_builder.title_bar_style(tauri::TitleBarStyle::Overlay); }
-    let _live_channels_window = channels_builder.build()
-        .map_err(|e| format!("Failed to create live channels window: {e}"))?;
+    let _live_channels_window = WebviewWindowBuilder::new(app, "live-channels", url)
+    .title("Channel Management // Watchtower")
+    .inner_size(680.0, 760.0)
+    .min_inner_size(520.0, 600.0)
+    .resizable(true)
+    .background_color(tauri::webview::Color(26, 28, 30, 255))
+    .build()
+    .map_err(|e| format!("Failed to create live channels window: {e}"))?;
 
     #[cfg(not(target_os = "macos"))]
     let _ = _live_channels_window.remove_menu();
@@ -957,126 +1370,253 @@ fn open_youtube_login_window(app: &AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn open_youtube_login(webview: Webview, app: AppHandle) -> Result<(), String> {
-    require_trusted_window(webview.label())?;
+async fn open_youtube_login(app: AppHandle) -> Result<(), String> {
     open_youtube_login_window(&app)
 }
 
-fn build_app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
-    let settings_item = MenuItem::with_id(
-        handle,
-        MENU_FILE_SETTINGS_ID,
-        "Settings...",
-        true,
-        Some("CmdOrCtrl+,"),
-    )?;
-    let separator = PredefinedMenuItem::separator(handle)?;
-    let quit_item = PredefinedMenuItem::quit(handle, Some("Quit"))?;
-    let file_menu = Submenu::with_items(
-        handle,
-        "File",
-        true,
-        &[&settings_item, &separator, &quit_item],
-    )?;
-
-    // The About box is the only place a packaged build states its licence
-    // (#6977). Both fields are set because the platforms disagree about which
-    // one they render: muda ignores `license` on macOS and `credits` on
-    // Windows and Linux, so each has to carry the licence itself for the
-    // platform that shows it. `credits` also points at the notices file the
-    // build generates into resources/, which carries the verbatim MIT/BSD/
-    // Apache texts a binary distribution has to travel with.
-    let about_metadata = AboutMetadata {
-        name: Some("World Monitor".into()),
-        version: Some(env!("CARGO_PKG_VERSION").into()),
-        copyright: Some("\u{00a9} 2024-2026 Elie Habib".into()),
-        license: Some("AGPL-3.0-only".into()),
-        credits: Some(
-            "Licensed under AGPL-3.0-only.\nThird-party notices: resources/notices/THIRD-PARTY-NOTICES.md\nSource: https://github.com/koala73/worldmonitor"
-                .into(),
-        ),
-        website: Some("https://worldmonitor.app".into()),
-        website_label: Some("worldmonitor.app".into()),
-        ..Default::default()
-    };
-    let about_item =
-        PredefinedMenuItem::about(handle, Some("About World Monitor"), Some(about_metadata))?;
-    let github_item = MenuItem::with_id(
-        handle,
-        MENU_HELP_GITHUB_ID,
-        "GitHub Repository",
-        true,
-        None::<&str>,
-    )?;
-    let help_separator = PredefinedMenuItem::separator(handle)?;
-
-    #[cfg(feature = "devtools")]
-    let help_menu = {
-        let devtools_item = MenuItem::with_id(
-            handle,
-            MENU_HELP_DEVTOOLS_ID,
-            "Toggle Developer Tools",
-            true,
-            Some("CmdOrCtrl+Alt+I"),
-        )?;
-        Submenu::with_items(
-            handle,
-            "Help",
-            true,
-            &[&about_item, &help_separator, &github_item, &devtools_item],
-        )?
-    };
-
-    #[cfg(not(feature = "devtools"))]
-    let help_menu = Submenu::with_items(
-        handle,
-        "Help",
-        true,
-        &[&about_item, &help_separator, &github_item],
-    )?;
-
-    let edit_menu = {
-        let undo = PredefinedMenuItem::undo(handle, None)?;
-        let redo = PredefinedMenuItem::redo(handle, None)?;
-        let sep1 = PredefinedMenuItem::separator(handle)?;
-        let cut = PredefinedMenuItem::cut(handle, None)?;
-        let copy = PredefinedMenuItem::copy(handle, None)?;
-        let paste = PredefinedMenuItem::paste(handle, None)?;
-        let select_all = PredefinedMenuItem::select_all(handle, None)?;
-        Submenu::with_items(
-            handle,
-            "Edit",
-            true,
-            &[&undo, &redo, &sep1, &cut, &copy, &paste, &select_all],
-        )?
-    };
-
-    Menu::with_items(handle, &[&file_menu, &edit_menu, &help_menu])
+fn clean_window_title(value: &str, fallback: &str) -> String {
+    let cleaned: String = value
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(80)
+        .collect();
+    let trimmed = cleaned.trim();
+    if trimmed.is_empty() {
+        fallback.to_string()
+    } else {
+        trimmed.to_string()
+    }
 }
 
-fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
-    match event.id().as_ref() {
-        MENU_FILE_SETTINGS_ID => {
-            if let Err(err) = open_settings_window(app) {
-                append_desktop_log(app, "ERROR", &format!("settings menu failed: {err}"));
-                eprintln!("[tauri] settings menu failed: {err}");
-            }
-        }
-        MENU_HELP_GITHUB_ID => {
-            let _ = open_in_shell("https://github.com/koala73/worldmonitor");
-        }
-        #[cfg(feature = "devtools")]
-        MENU_HELP_DEVTOOLS_ID => {
-            if let Some(window) = app.get_webview_window("main") {
-                if window.is_devtools_open() {
-                    window.close_devtools();
-                } else {
-                    window.open_devtools();
-                }
-            }
-        }
-        _ => {}
+fn communication_host_allowed(host: &str) -> bool {
+    matches!(
+        host,
+        "voice.google.com"
+            | "discord.com"
+            | "app.slack.com"
+            | "web.telegram.org"
+            | "messages.google.com"
+            | "meet.google.com"
+            | "mail.google.com"
+            | "teams.microsoft.com"
+            | "web.whatsapp.com"
+    )
+}
+
+#[tauri::command]
+async fn open_communications_window(
+    app: AppHandle,
+    service: String,
+    url: String,
+    title: String,
+) -> Result<(), String> {
+    let parsed = Url::parse(&url).map_err(|_| "Invalid communications URL".to_string())?;
+    if parsed.scheme() != "https" {
+        return Err("Communications windows require HTTPS".to_string());
     }
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| "Communications URL is missing a host".to_string())?;
+    if !communication_host_allowed(host) {
+        return Err(format!("Integrated communications host is not approved: {host}"));
+    }
+    let slug: String = service
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric() || *character == '-')
+        .take(48)
+        .collect();
+    if slug.is_empty() {
+        return Err("Invalid communications service identifier".to_string());
+    }
+    let label = format!("communications-{slug}");
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.show();
+        window
+            .set_focus()
+            .map_err(|error| format!("Failed to focus communications window: {error}"))?;
+        return Ok(());
+    }
+
+    let window = WebviewWindowBuilder::new(&app, label, WebviewUrl::External(parsed))
+        .title(clean_window_title(&title, "Project V Communications"))
+        .inner_size(1080.0, 760.0)
+        .min_inner_size(720.0, 520.0)
+        .resizable(true)
+        .build()
+        .map_err(|error| format!("Failed to create communications window: {error}"))?;
+
+    #[cfg(not(target_os = "macos"))]
+    let _ = window.remove_menu();
+
+    Ok(())
+}
+
+fn normalized_communications_dock_bounds(
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> (LogicalPosition<f64>, LogicalSize<f64>) {
+    (
+        LogicalPosition::new(x.max(0.0).round(), y.max(0.0).round()),
+        LogicalSize::new(width.max(240.0).round(), height.max(180.0).round()),
+    )
+}
+
+#[tauri::command]
+async fn open_communications_dock(
+    app: AppHandle,
+    service: String,
+    url: String,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    let parsed = Url::parse(&url).map_err(|_| "Invalid communications URL".to_string())?;
+    if parsed.scheme() != "https" {
+        return Err("Communications dock requires HTTPS".to_string());
+    }
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| "Communications URL is missing a host".to_string())?;
+    if !communication_host_allowed(host) {
+        return Err(format!("Integrated communications host is not approved: {host}"));
+    }
+    let slug: String = service
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric() || *character == '-')
+        .take(48)
+        .collect();
+    if slug.is_empty() {
+        return Err("Invalid communications service identifier".to_string());
+    }
+
+    let (position, size) = normalized_communications_dock_bounds(x, y, width, height);
+    if let Some(webview) = app.get_webview("communications-dock") {
+        webview
+            .navigate(parsed)
+            .map_err(|error| format!("Failed to navigate communications dock: {error}"))?;
+        webview
+            .set_position(position)
+            .map_err(|error| format!("Failed to position communications dock: {error}"))?;
+        webview
+            .set_size(size)
+            .map_err(|error| format!("Failed to resize communications dock: {error}"))?;
+        webview
+            .show()
+            .map_err(|error| format!("Failed to show communications dock: {error}"))?;
+        let _ = webview.set_focus();
+        return Ok(());
+    }
+
+    let window = app
+        .get_window("main")
+        .ok_or_else(|| "Main Watchtower window is unavailable".to_string())?;
+    let builder = WebviewBuilder::new("communications-dock", WebviewUrl::External(parsed));
+    let webview = window
+        .add_child(builder, position, size)
+        .map_err(|error| format!("Failed to create communications dock: {error}"))?;
+    let _ = webview.set_focus();
+    Ok(())
+}
+
+#[tauri::command]
+async fn update_communications_dock(
+    app: AppHandle,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    visible: bool,
+) -> Result<(), String> {
+    let Some(webview) = app.get_webview("communications-dock") else {
+        return Ok(());
+    };
+    if !visible {
+        return webview
+            .hide()
+            .map_err(|error| format!("Failed to hide communications dock: {error}"));
+    }
+    let (position, size) = normalized_communications_dock_bounds(x, y, width, height);
+    webview
+        .set_position(position)
+        .map_err(|error| format!("Failed to position communications dock: {error}"))?;
+    webview
+        .set_size(size)
+        .map_err(|error| format!("Failed to resize communications dock: {error}"))?;
+    webview
+        .show()
+        .map_err(|error| format!("Failed to show communications dock: {error}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn hide_communications_dock(app: AppHandle) -> Result<(), String> {
+    if let Some(webview) = app.get_webview("communications-dock") {
+        webview
+            .hide()
+            .map_err(|error| format!("Failed to hide communications dock: {error}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn reload_communications_dock(app: AppHandle) -> Result<(), String> {
+    let webview = app
+        .get_webview("communications-dock")
+        .ok_or_else(|| "No communications service is currently docked".to_string())?;
+    webview
+        .reload()
+        .map_err(|error| format!("Failed to reload communications dock: {error}"))
+}
+
+#[tauri::command]
+async fn close_communications_dock(app: AppHandle) -> Result<(), String> {
+    if let Some(webview) = app.get_webview("communications-dock") {
+        webview
+            .close()
+            .map_err(|error| format!("Failed to close communications dock: {error}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_source_browser_window(app: AppHandle, url: String, title: String) -> Result<(), String> {
+    let parsed = Url::parse(&url).map_err(|_| "Invalid source URL".to_string())?;
+    let allowed = parsed.scheme() == "https"
+        || (parsed.scheme() == "http"
+            && matches!(parsed.host_str(), Some("localhost") | Some("127.0.0.1")));
+    if !allowed {
+        return Err("Source Browser permits HTTPS URLs and localhost HTTP only".to_string());
+    }
+
+    if let Some(window) = app.get_webview_window("source-browser-window") {
+        let _ = window.close();
+    }
+
+    let window = WebviewWindowBuilder::new(
+        &app,
+        "source-browser-window",
+        WebviewUrl::External(parsed),
+    )
+    .title(clean_window_title(&title, "Project V Source Browser"))
+    .inner_size(1180.0, 800.0)
+    .min_inner_size(760.0, 540.0)
+    .resizable(true)
+    .focused(true)
+    .center()
+    .build()
+    .map_err(|error| format!("Failed to create source browser window: {error}"))?;
+
+    #[cfg(not(target_os = "macos"))]
+    let _ = window.remove_menu();
+    let _ = window.show();
+    window
+        .set_focus()
+        .map_err(|error| format!("Source browser opened but could not receive focus: {error}"))?;
+
+    Ok(())
 }
 
 /// Strip Windows extended-length path prefixes that `canonicalize()` adds.
@@ -1093,63 +1633,10 @@ fn sanitize_path_for_node(p: &Path) -> String {
     }
 }
 
-fn build_time_sidecar_env_value(key: &str) -> Option<&'static str> {
-    match key {
-        "CONVEX_URL" => option_env!("CONVEX_URL"),
-        DESKTOP_SHARED_SECRET_KEY => option_env!("WM_DESKTOP_SHARED_SECRET"),
-        _ => None,
-    }
-    .filter(|value| !value.trim().is_empty())
-}
-
-fn sidecar_env_value(key: &str) -> Option<String> {
-    build_time_sidecar_env_value(key)
-        .map(ToString::to_string)
-        .or_else(|| std::env::var(key).ok().filter(|value| !value.trim().is_empty()))
-}
-
 #[cfg(test)]
 mod sanitize_path_tests {
-    use super::{
-        build_time_sidecar_env_value, can_manage_renderer_secrets, configured_renderer_secret_keys,
-        is_renderer_managed_secret_key, local_api_proxy_path_is_allowed, sanitize_path_for_node,
-        read_port_file, watch_for_late_sidecar_port, SidecarReadinessOutcome,
-        BUILD_TIME_SIDECAR_ENV_KEYS, DEFAULT_LOCAL_API_PORT, DESKTOP_SHARED_SECRET_KEY,
-        SUPPORTED_SECRET_KEYS,
-    };
-    use std::collections::HashMap;
-    use std::fs;
-    use std::path::{Path, PathBuf};
-    use std::process::{Child, Command};
-    use std::sync::{Arc, Mutex};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn delayed_sidecar_test_child() -> Child {
-        Command::new(std::env::current_exe().expect("resolve test executable"))
-            .args([
-                "--exact",
-                "sanitize_path_tests::sidecar_readiness_child_waits",
-                "--ignored",
-            ])
-            .spawn()
-            .expect("spawn test child")
-    }
-
-    fn unique_test_dir() -> PathBuf {
-        std::env::temp_dir().join(format!(
-            "worldmonitor-sidecar-readiness-{}",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("system time after epoch")
-                .as_nanos()
-        ))
-    }
-
-    #[test]
-    #[ignore = "spawned as a long-lived child by the sidecar readiness test"]
-    fn sidecar_readiness_child_waits() {
-        std::thread::sleep(std::time::Duration::from_secs(30));
-    }
+    use super::sanitize_path_for_node;
+    use std::path::Path;
 
     #[test]
     fn strips_extended_drive_prefix() {
@@ -1176,112 +1663,6 @@ mod sanitize_path_tests {
             sanitize_path_for_node(raw),
             r"C:\Users\alice\sidecar\local-api-server.mjs".to_string()
         );
-    }
-
-    #[test]
-    fn supports_desktop_shared_secret_for_keychain_injection() {
-        assert!(SUPPORTED_SECRET_KEYS.contains(&DESKTOP_SHARED_SECRET_KEY));
-    }
-
-    #[test]
-    fn supports_desktop_shared_secret_for_packaged_sidecar_env() {
-        assert!(BUILD_TIME_SIDECAR_ENV_KEYS.contains(&DESKTOP_SHARED_SECRET_KEY));
-    }
-
-    #[test]
-    fn supports_alpha_vantage_for_keychain_injection() {
-        assert!(SUPPORTED_SECRET_KEYS.contains(&"ALPHA_VANTAGE_API_KEY"));
-    }
-
-    #[test]
-    fn renderer_secret_commands_cannot_manage_desktop_shared_secret() {
-        assert!(!is_renderer_managed_secret_key(DESKTOP_SHARED_SECRET_KEY));
-    }
-
-    #[test]
-    fn only_main_and_settings_can_manage_renderer_secrets() {
-        assert!(can_manage_renderer_secrets("main"));
-        assert!(can_manage_renderer_secrets("settings"));
-        assert!(!can_manage_renderer_secrets("live-channels"));
-        assert!(!can_manage_renderer_secrets("youtube-login"));
-    }
-
-    #[test]
-    fn configured_secret_metadata_filters_internal_values_and_keys() {
-        let secrets = HashMap::from([
-            ("GROQ_API_KEY".to_string(), "secret-value".to_string()),
-            (DESKTOP_SHARED_SECRET_KEY.to_string(), "internal-value".to_string()),
-        ]);
-        assert_eq!(configured_renderer_secret_keys(&secrets), vec!["GROQ_API_KEY"]);
-    }
-
-    #[test]
-    fn ignores_unknown_build_time_sidecar_env_keys() {
-        assert_eq!(build_time_sidecar_env_value("NOT_A_SUPPORTED_SIDECAR_KEY"), None);
-    }
-
-    #[test]
-    fn local_api_proxy_allows_normal_api_routes_and_settings_diagnostics() {
-        assert!(local_api_proxy_path_is_allowed("/api/fred-data?series_id=CPI"));
-        assert!(local_api_proxy_path_is_allowed("/api/local-debug-toggle"));
-        assert!(local_api_proxy_path_is_allowed("/api/local-traffic-log"));
-    }
-
-    #[test]
-    fn local_api_proxy_rejects_secret_control_routes_and_non_api_paths() {
-        for path in [
-            "/api/local-env-update",
-            "/api/local-env-update-batch",
-            "/api/local-validate-secret",
-            "/api/../api/local-env-update",
-            "/api/%2e%2e/api/local-env-update",
-            "/api/local-unexpected",
-            "/settings",
-            "//api/fred-data",
-        ] {
-            assert!(!local_api_proxy_path_is_allowed(path), "{path} must be rejected");
-        }
-    }
-
-    #[test]
-    fn late_port_file_is_promoted_without_default_port_fallback() {
-        let test_dir = unique_test_dir();
-        fs::create_dir_all(&test_dir).expect("create test directory");
-        let port_file = test_dir.join("sidecar.port");
-        let child = delayed_sidecar_test_child();
-        let expected_pid = child.id();
-        let child = Arc::new(Mutex::new(Some(child)));
-        let port = Arc::new(Mutex::new(None));
-
-        // This models the initial readiness miss. The port stays absent, so no
-        // bearer request can be made to DEFAULT_LOCAL_API_PORT.
-        assert_eq!(read_port_file(&port_file, 10), None);
-        assert_eq!(*port.lock().expect("lock port"), None);
-
-        let delayed_port_file = port_file.clone();
-        let writer = std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(50));
-            fs::write(delayed_port_file, "47555\n").expect("write delayed port file");
-        });
-
-        let outcome = watch_for_late_sidecar_port(
-            port_file,
-            Arc::clone(&child),
-            Arc::clone(&port),
-            expected_pid,
-            2_000,
-        );
-        writer.join().expect("join delayed port writer");
-
-        assert_eq!(outcome, SidecarReadinessOutcome::Confirmed(47555));
-        assert_eq!(*port.lock().expect("lock port"), Some(47555));
-        assert_ne!(*port.lock().expect("lock port"), Some(DEFAULT_LOCAL_API_PORT));
-
-        if let Some(mut child) = child.lock().expect("lock child").take() {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
-        let _ = fs::remove_dir_all(test_dir);
     }
 }
 
@@ -1337,17 +1718,9 @@ fn resolve_node_binary(app: &AppHandle) -> Option<PathBuf> {
     if !cfg!(debug_assertions) {
         let node_name = if cfg!(windows) { "node.exe" } else { "node" };
         if let Ok(resource_dir) = app.path().resource_dir() {
-            let mut candidates = vec![resource_dir.join("sidecar").join("node").join(node_name)];
-            if cfg!(windows) {
-                // NSIS resource paths can flatten nested names in some upgrade scenarios.
-                // Keep this fallback so sidecar startup still succeeds if the runtime is
-                // materialized as sidecar\node.node.exe instead of sidecar\node\node.exe.
-                candidates.push(resource_dir.join("sidecar").join("node.node.exe"));
-            }
-            for bundled in candidates {
-                if bundled.is_file() {
-                    return Some(bundled);
-                }
+            let bundled = resource_dir.join("sidecar").join("node").join(node_name);
+            if bundled.is_file() {
+                return Some(bundled);
             }
         }
     }
@@ -1379,165 +1752,21 @@ fn resolve_node_binary(app: &AppHandle) -> Option<PathBuf> {
     common_locations.into_iter().find(|path| path.is_file())
 }
 
-fn read_confirmed_port_file(path: &Path) -> Option<u16> {
-    fs::read_to_string(path)
-        .ok()?
-        .trim()
-        .parse::<u16>()
-        .ok()
-        .filter(|port| *port > 0)
-}
-
 fn read_port_file(path: &Path, timeout_ms: u64) -> Option<u16> {
     let start = std::time::Instant::now();
     let interval = std::time::Duration::from_millis(100);
     let timeout = std::time::Duration::from_millis(timeout_ms);
     while start.elapsed() < timeout {
-        if let Some(port) = read_confirmed_port_file(path) {
-            return Some(port);
+        if let Ok(contents) = fs::read_to_string(path) {
+            if let Ok(port) = contents.trim().parse::<u16>() {
+                if port > 0 {
+                    return Some(port);
+                }
+            }
         }
         std::thread::sleep(interval);
     }
     None
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum SidecarReadinessOutcome {
-    Confirmed(u16),
-    Exited,
-    Replaced,
-    TimedOut,
-}
-
-/// Promotes a port only while the child that created the port file is still
-/// alive. Holding the child lock until after the port assignment prevents a
-/// concurrent stop from leaving a stale port behind.
-fn promote_verified_sidecar_port(
-    child: &Arc<Mutex<Option<Child>>>,
-    port: &Arc<Mutex<Option<u16>>>,
-    expected_pid: u32,
-    confirmed_port: u16,
-) -> SidecarReadinessOutcome {
-    let mut child_slot = match child.lock() {
-        Ok(slot) => slot,
-        Err(_) => return SidecarReadinessOutcome::TimedOut,
-    };
-    let Some(active_child) = child_slot.as_mut() else {
-        return SidecarReadinessOutcome::Exited;
-    };
-    if active_child.id() != expected_pid {
-        return SidecarReadinessOutcome::Replaced;
-    }
-    match active_child.try_wait() {
-        Ok(None) => match port.lock() {
-            Ok(mut port_slot) => {
-                *port_slot = Some(confirmed_port);
-                SidecarReadinessOutcome::Confirmed(confirmed_port)
-            }
-            Err(_) => SidecarReadinessOutcome::TimedOut,
-        },
-        Ok(Some(_)) => {
-            *child_slot = None;
-            drop(child_slot);
-            if let Ok(mut port_slot) = port.lock() {
-                *port_slot = None;
-            }
-            SidecarReadinessOutcome::Exited
-        }
-        // Do not send the token to a port if we cannot verify the child state.
-        Err(_) => SidecarReadinessOutcome::TimedOut,
-    }
-}
-
-fn sidecar_child_outcome(
-    child: &Arc<Mutex<Option<Child>>>,
-    port: &Arc<Mutex<Option<u16>>>,
-    expected_pid: u32,
-) -> Option<SidecarReadinessOutcome> {
-    let mut child_slot = match child.lock() {
-        Ok(slot) => slot,
-        Err(_) => return Some(SidecarReadinessOutcome::TimedOut),
-    };
-    let Some(active_child) = child_slot.as_mut() else {
-        return Some(SidecarReadinessOutcome::Exited);
-    };
-    if active_child.id() != expected_pid {
-        return Some(SidecarReadinessOutcome::Replaced);
-    }
-    match active_child.try_wait() {
-        Ok(None) | Err(_) => None,
-        Ok(Some(_)) => {
-            *child_slot = None;
-            drop(child_slot);
-            if let Ok(mut port_slot) = port.lock() {
-                *port_slot = None;
-            }
-            Some(SidecarReadinessOutcome::Exited)
-        }
-    }
-}
-
-/// Waits for a late port-file write without ever selecting the configured
-/// default port. The watcher is bound to the launched child PID so an old
-/// watcher cannot promote a port after the sidecar has been stopped or replaced.
-fn watch_for_late_sidecar_port(
-    port_file: PathBuf,
-    child: Arc<Mutex<Option<Child>>>,
-    port: Arc<Mutex<Option<u16>>>,
-    expected_pid: u32,
-    timeout_ms: u64,
-) -> SidecarReadinessOutcome {
-    let start = std::time::Instant::now();
-    let interval = std::time::Duration::from_millis(100);
-    let timeout = std::time::Duration::from_millis(timeout_ms);
-
-    while start.elapsed() < timeout {
-        if let Some(outcome) = sidecar_child_outcome(&child, &port, expected_pid) {
-            return outcome;
-        }
-        if let Some(confirmed_port) = read_confirmed_port_file(&port_file) {
-            return promote_verified_sidecar_port(&child, &port, expected_pid, confirmed_port);
-        }
-        std::thread::sleep(interval);
-    }
-
-    sidecar_child_outcome(&child, &port, expected_pid)
-        .unwrap_or(SidecarReadinessOutcome::TimedOut)
-}
-
-fn start_late_sidecar_port_watcher(
-    app: AppHandle,
-    port_file: PathBuf,
-    child: Arc<Mutex<Option<Child>>>,
-    port: Arc<Mutex<Option<u16>>>,
-    expected_pid: u32,
-) {
-    std::thread::spawn(move || {
-        match watch_for_late_sidecar_port(
-            port_file,
-            child,
-            port,
-            expected_pid,
-            SIDECAR_PORT_RECOVERY_TIMEOUT_MS,
-        ) {
-            SidecarReadinessOutcome::Confirmed(confirmed_port) => append_desktop_log(
-                &app,
-                "INFO",
-                &format!("sidecar confirmed port={confirmed_port} after initial readiness timeout"),
-            ),
-            SidecarReadinessOutcome::Exited => append_desktop_log(
-                &app,
-                "WARN",
-                "sidecar exited before reporting a verified port; a later start can retry",
-            ),
-            SidecarReadinessOutcome::Replaced => (),
-            SidecarReadinessOutcome::TimedOut => append_desktop_log(
-                &app,
-                "WARN",
-                "sidecar did not report a verified port during bounded recovery; refusing to target the default port",
-            ),
-        }
-    });
 }
 
 fn start_local_api(app: &AppHandle) -> Result<(), String> {
@@ -1546,16 +1775,8 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
         .child
         .lock()
         .map_err(|_| "Failed to lock local API state".to_string())?;
-    if let Some(child) = slot.as_mut() {
-        match child.try_wait() {
-            Ok(None) | Err(_) => return Ok(()),
-            Ok(Some(_)) => {
-                *slot = None;
-                if let Ok(mut port_slot) = state.port.lock() {
-                    *port_slot = None;
-                }
-            }
-        }
+    if slot.is_some() {
+        return Ok(());
     }
 
     // Clear port state for fresh start
@@ -1645,7 +1866,6 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
         .env("LOCAL_API_RESOURCE_DIR", &resource_for_node)
         .env("LOCAL_API_DATA_DIR", &data_dir)
         .env("LOCAL_API_MODE", "tauri-sidecar")
-        .env("LOCAL_API_CLOUD_FALLBACK", "true")
         .env("LOCAL_API_TOKEN", &local_api_token)
         .stdout(Stdio::from(log_file))
         .stderr(Stdio::from(log_file_err));
@@ -1668,17 +1888,16 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
         &format!("injected {secret_count} keychain secrets into sidecar env"),
     );
 
-    // Inject packaged secrets (CI) with runtime env fallback (dev).
-    for key in BUILD_TIME_SIDECAR_ENV_KEYS {
-        if let Some(value) = sidecar_env_value(key) {
-            cmd.env(key, value);
-        }
+    // Inject build-time secrets (CI) with runtime env fallback (dev)
+    if let Some(url) = option_env!("CONVEX_URL") {
+        cmd.env("CONVEX_URL", url);
+    } else if let Ok(url) = std::env::var("CONVEX_URL") {
+        cmd.env("CONVEX_URL", url);
     }
 
     let child = cmd
         .spawn()
         .map_err(|e| format!("Failed to launch local API: {e}"))?;
-    let child_pid = child.id();
     append_desktop_log(
         app,
         "INFO",
@@ -1698,24 +1917,14 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
             *port_slot = Some(confirmed_port);
         }
     } else {
-        // Fail CLOSED. The default port is only a guess: the sidecar moves to
-        // an ephemeral port on EADDRINUSE, and an unrelated local process may
-        // be squatting 46123. Sending LOCAL_API_TOKEN bearer traffic to an
-        // unverified listener would hand the token to whoever owns the port.
-        // Commands surface "sidecar is not ready" until the sidecar actually
-        // reports its port via the port file.
         append_desktop_log(
             app,
             "WARN",
-            "sidecar port file not found within timeout; refusing to target the default port unverified",
+            "sidecar port file not found within timeout, using default",
         );
-        start_late_sidecar_port_watcher(
-            app.clone(),
-            port_file,
-            Arc::clone(&state.child),
-            Arc::clone(&state.port),
-            child_pid,
-        );
+        if let Ok(mut port_slot) = state.port.lock() {
+            *port_slot = Some(DEFAULT_LOCAL_API_PORT);
+        }
     }
 
     Ok(())
@@ -1780,6 +1989,55 @@ fn resolve_appimage_gio_module_dir() -> Option<PathBuf> {
     }
 
     None
+}
+
+#[cfg(feature = "updater")]
+#[tauri::command]
+async fn check_project_v_update(webview: Webview, app: AppHandle) -> Result<Option<ProjectVUpdateInfo>, String> {
+    require_trusted_window(webview.label())?;
+    if distribution_mode() == "portable" {
+        return Ok(None);
+    }
+    let updater = app.updater().map_err(|error| format!("Updater is not configured: {error}"))?;
+    let update = updater.check().await.map_err(|error| format!("Update check failed: {error}"))?;
+    Ok(update.map(|item| ProjectVUpdateInfo {
+        version: item.version,
+        current_version: item.current_version,
+        notes: item.body,
+        published_at: item.date.map(|date| date.to_string()),
+    }))
+}
+
+#[cfg(not(feature = "updater"))]
+#[tauri::command]
+async fn check_project_v_update(webview: Webview, _app: AppHandle) -> Result<Option<ProjectVUpdateInfo>, String> {
+    require_trusted_window(webview.label())?;
+    Ok(None)
+}
+
+#[cfg(feature = "updater")]
+#[tauri::command]
+async fn install_project_v_update(webview: Webview, app: AppHandle) -> Result<(), String> {
+    require_trusted_window(webview.label())?;
+    if distribution_mode() == "portable" {
+        return Err("Portable editions are updated by replacing the portable folder with a newer signed archive.".to_string());
+    }
+    let updater = app.updater().map_err(|error| format!("Updater is not configured: {error}"))?;
+    let Some(update) = updater.check().await.map_err(|error| format!("Update check failed: {error}"))? else {
+        return Err("No update is currently available.".to_string());
+    };
+    update
+        .download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(|error| format!("Update installation failed: {error}"))?;
+    app.restart();
+}
+
+#[cfg(not(feature = "updater"))]
+#[tauri::command]
+async fn install_project_v_update(webview: Webview, _app: AppHandle) -> Result<(), String> {
+    require_trusted_window(webview.label())?;
+    Err("The updater is disabled in development and unsigned local builds.".to_string())
 }
 
 fn main() {
@@ -1915,34 +2173,78 @@ fn main() {
         }
     }
 
-    tauri::Builder::default()
-        .menu(build_app_menu)
-        .on_menu_event(handle_menu_event)
+    let builder = tauri::Builder::default();
+    #[cfg(feature = "updater")]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+
+    builder
         .manage(LocalApiState::default())
         .manage(SecretsCache::load_from_keychain())
+        .manage(PhoenixBridgeSecret::load_from_keychain())
         .invoke_handler(tauri::generate_handler![
-            list_configured_secret_keys,
+            list_supported_secret_keys,
+            get_secret,
+            get_all_secrets,
             set_secret,
             delete_secret,
-            validate_secret_with_sidecar,
-            proxy_local_api_request,
+            get_local_api_token,
             get_local_api_port,
             get_desktop_runtime_info,
+            recognize_windows_speech,
             read_cache_entry,
             write_cache_entry,
             delete_cache_entry,
-            delete_cache_entries_by_prefix,
             open_logs_folder,
             open_sidecar_log_file,
             open_settings_window_command,
             close_settings_window,
+            toggle_developer_tools,
             open_live_channels_window_command,
             close_live_channels_window,
+            open_case_desk_window,
+            close_case_desk_window,
+            open_data_desk_window,
+            close_data_desk_window,
+            open_map_operations_window,
+            close_map_operations_window,
+            open_assistant_desk_window,
+            close_assistant_desk_window,
+            open_analysis_room_window,
+            close_analysis_room_window,
+            open_launch_desk_window,
+            close_launch_desk_window,
+            open_camera_desk_window,
+            close_camera_desk_window,
+            open_osint_desk_window,
+            close_osint_desk_window,
+            select_application_executable,
+            select_launch_handoff_file,
+            launch_approved_application,
             open_url,
             open_youtube_login,
+            open_communications_window,
+            open_communications_dock,
+            update_communications_dock,
+            hide_communications_dock,
+            reload_communications_dock,
+            close_communications_dock,
+            open_source_browser_window,
+            check_project_v_update,
+            install_project_v_update,
+            configure_phoenix_bridge,
+            disconnect_phoenix_bridge,
+            phoenix_bridge_health,
+            send_phoenix_watchtower_alert,
             fetch_polymarket
         ])
         .setup(|app| {
+            // Project V uses its own command bar. Remove the inherited native
+            // File/Edit/Help menu without affecting WebView keyboard editing.
+            #[cfg(not(target_os = "macos"))]
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.remove_menu();
+            }
+
             // Load persistent cache into memory (avoids 14MB file I/O on every IPC call)
             let cache_path = cache_file_path(&app.handle()).unwrap_or_default();
             app.manage(PersistentCache::load(&cache_path));
@@ -1959,7 +2261,7 @@ fn main() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while running world-monitor tauri application")
+        .expect("error while running Project V Watchtower")
         .run(|app, event| {
             match &event {
                 // macOS: hide window on close instead of quitting (standard behavior)

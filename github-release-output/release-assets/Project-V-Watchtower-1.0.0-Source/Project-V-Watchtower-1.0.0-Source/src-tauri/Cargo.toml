@@ -1,0 +1,24 @@
+[package]
+name = "project-v-watchtower"
+version = "1.0.0"
+description = "Project V Watchtower desktop command center"
+authors = ["Project V contributors"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["unstable"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native-sync-persistent", "crypto-rust"] }
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "json"] }
+getrandom = "0.2"
+tauri-plugin-updater = { version = "2", optional = true }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+devtools = ["tauri/devtools"]
+updater = ["dep:tauri-plugin-updater"]

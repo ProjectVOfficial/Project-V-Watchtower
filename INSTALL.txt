@@ -1,0 +1,14 @@
+PROJECT V WATCHTOWER // PHASE 20.6 NATIVE BRIDGE REPAIR
+
+1. Stop Watchtower completely (Ctrl+C in the desktop:dev terminal).
+2. Copy the included src-tauri folder into your Watchtower project root:
+   E:\PROJECTS\worldmonitor-2.5.23
+3. Choose Replace files in destination.
+4. Verify installation:
+   Select-String -Path "E:\PROJECTS\worldmonitor-2.5.23\src-tauri\src\main.rs" -Pattern "configure_phoenix_bridge","PhoenixBridgeSecret::load_from_keychain"
+5. Start Watchtower again:
+   cd "E:\PROJECTS\worldmonitor-2.5.23"
+   npm run desktop:dev
+6. In the desktop Watchtower window, pair Phoenix again.
+
+This repair contains only the native Tauri main.rs from the Phase 20.6 bridge patch.

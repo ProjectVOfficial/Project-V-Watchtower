@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "World Monitor",
-  "mainBinaryName": "world-monitor",
-  "version": "2.10.0",
+  "productName": "Project V Watchtower",
+  "mainBinaryName": "project-v-watchtower",
+  "version": "1.1.0-1",
   "identifier": "app.worldmonitor.desktop",
   "build": {
-    "beforeDevCommand": "npm run build:sidecar-sebuf && node scripts/build-sidecar-handlers.mjs && npm run dev",
+    "beforeDevCommand": "npm run build:sidecar-sebuf && npm run dev",
     "beforeBuildCommand": "npm run build:desktop",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000"
@@ -13,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "World Monitor",
+        "title": "Project V // Watchtower",
         "width": 1440,
         "height": 900,
         "minWidth": 1200,
@@ -21,30 +21,26 @@
         "resizable": true,
         "fullscreen": false,
         "backgroundColor": [
-          26,
-          28,
-          30,
+          8,
+          6,
+          6,
           255
         ]
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https: http://localhost:5173 http://127.0.0.1:* ws: wss: blob: data: https://abacus.worldmonitor.app; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval' https://www.youtube.com https://abacus.worldmonitor.app https://*.clerk.accounts.dev; worker-src 'self' blob:; font-src 'self' data: https:; media-src 'self' data: blob: https: http://127.0.0.1:* http://localhost:*; frame-src 'self' http://127.0.0.1:* http://localhost:* https://worldmonitor.app https://tech.worldmonitor.app https://finance.worldmonitor.app https://commodity.worldmonitor.app https://happy.worldmonitor.app https://energy.worldmonitor.app https://www.youtube.com https://www.youtube-nocookie.com https://webcams.windy.com https://*.clerk.accounts.dev;"
+      "csp": "default-src 'self'; connect-src 'self' https: http://localhost:5173 http://127.0.0.1:* ws: wss: blob: data:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval' https://www.youtube.com; worker-src 'self' blob:; font-src 'self' data: https:; media-src 'self' data: blob: https: http://127.0.0.1:* http://localhost:*; frame-src 'self' https: http://127.0.0.1:* http://localhost:* https://worldmonitor.app https://tech.worldmonitor.app https://www.youtube.com https://www.youtube-nocookie.com;"
     }
   },
   "bundle": {
     "active": true,
-    "licenseFile": "../LICENSE",
     "targets": [
-      "app",
-      "dmg",
       "nsis",
-      "msi",
-      "appimage"
+      "msi"
     ],
     "category": "Productivity",
-    "shortDescription": "World Monitor desktop app (all variants switchable in-app)",
-    "longDescription": "World Monitor desktop app for real-time global intelligence. Tech, finance, commodity, energy, and happy variants are selected in-app — one binary serves all of them.",
+    "shortDescription": "Project V Watchtower situational intelligence desktop app",
+    "longDescription": "A V-inspired local-first situational intelligence interface built on the open-source World Monitor platform.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -54,19 +50,21 @@
     ],
     "resources": [
       "../api",
-      "../shared/llm-health-providers.js",
       "sidecar/local-api-server.mjs",
       "sidecar/package.json",
       "sidecar/node",
       "../data",
-      "../src/config",
-      "notices"
+      "../src/config"
     ],
     "windows": {
       "digestAlgorithm": "sha256",
       "timestampUrl": "https://timestamp.digicert.com",
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
       "nsis": {
-        "installerHooks": "nsis/installer-hooks.nsh"
+        "installMode": "both",
+        "displayLanguageSelector": false
       }
     },
     "macOS": {
@@ -76,6 +74,9 @@
       "appimage": {
         "bundleMediaFramework": true
       }
-    }
+    },
+    "publisher": "Project V",
+    "copyright": "Copyright © 2026 Project V contributors",
+    "licenseFile": "../LICENSE"
   }
 }

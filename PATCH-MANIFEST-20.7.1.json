@@ -1,0 +1,25 @@
+{
+  "name": "20.7.1",
+  "files": [
+    {
+      "path": "INSTALL-PHASE-20.7.1.txt",
+      "size": 307,
+      "sha256": "8f01436657fcec4a266608c6fc6577500600ffc6ce1639e25e6b6010e32719bf"
+    },
+    {
+      "path": "PHASE-20.7.1-SENTINEL-DIAGNOSTIC.md",
+      "size": 822,
+      "sha256": "d9d11ce88221ac894f952aa348f9760448c51a49e8dffebb5307678d495fc5df"
+    },
+    {
+      "path": "src/components/OperationsPanels.ts",
+      "size": 30862,
+      "sha256": "e5a3e04f096bfc67ce35dfe15fea26b5109e7b5dc71f58d4943225f198d967f2"
+    },
+    {
+      "path": "src/services/operations-center.ts",
+      "size": 34219,
+      "sha256": "b68d814698844195c5d283c220d05e40e8076e4e7b6c44142c1a4201c6ab3895"
+    }
+  ]
+}

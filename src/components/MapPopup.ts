@@ -1,110 +1,25 @@
 import type { ConflictZone, Hotspot, NewsItem, MilitaryBase, StrategicWaterway, APTGroup, NuclearFacility, EconomicCenter, GammaIrradiator, Pipeline, UnderseaCable, CableAdvisory, RepairShip, InternetOutage, AIDataCenter, AisDisruptionEvent, SocialUnrestEvent, MilitaryFlight, MilitaryVessel, MilitaryFlightCluster, MilitaryVesselCluster, NaturalEvent, Port, Spaceport, CriticalMineralProject, CyberThreat } from '@/types';
-import type { TradeRouteSegment } from '@/config/trade-routes';
-import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
+import type { AirportDelayAlert } from '@/services/aviation';
 import type { Earthquake } from '@/services/earthquakes';
 import type { WeatherAlert } from '@/services/weather';
-import type { RadiationObservation } from '@/services/radiation';
-import { UNDERSEA_CABLES } from '@/config/geo-map';
+import { UNDERSEA_CABLES } from '@/config';
 import type { StartupHub, Accelerator, TechHQ, CloudRegion } from '@/config/tech-geo';
 import type { TechHubActivity } from '@/services/tech-activity';
 import type { GeoHubActivity } from '@/services/geo-activity';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { isMobileDevice, getCSSColor } from '@/utils';
-import { TransitChart } from '@/utils/transit-chart';
-import { HS2RingChart } from '@/utils/hs2-ring-chart';
-import type { GetChokepointStatusResponse, TransitDayCount } from '@/services/supply-chain';
-import { fetchChokepointHistory } from '@/services/supply-chain';
 import { t } from '@/services/i18n';
 import { fetchHotspotContext, formatArticleDate, extractDomain, type GdeltArticle } from '@/services/gdelt-intel';
-import { getWingbitsLiveFlight } from '@/services/wingbits';
-import { isFeatureAvailable } from '@/services/runtime-config';
 import { getNaturalEventIcon } from '@/services/eonet';
 import { getHotspotEscalation, getEscalationChange24h } from '@/services/hotspot-escalation';
 import { getCableHealthRecord } from '@/services/cable-health';
-import { nameToCountryCode } from '@/services/country-geometry';
-import { sparkline } from '@/utils/sparkline';
-import { vesselTypeLabel } from '@/utils/vessel-type-label';
-import { getAuthState } from '@/services/auth-state';
-import { hasPremiumAccess } from '@/services/panel-gating';
-import { trackGateHit } from '@/services/analytics';
-import { renderPopupSourceLinks } from './map-popup-source-links';
-import { overlayHistory, type OverlayCloseOrigin, type OverlayOpenHandle } from '@/utils/overlay-history';
-import { setTrustedHtml, trustedHtml } from '@/utils/dom-utils';
+import { normalizeMapPopupIntelligence, type MapPopupIntelligenceItem } from '@/services/map-popup-intelligence';
+import { saveMapOperationItem } from '@/services/map-operations';
+import { sendToCaseDesk } from '@/services/case-handoff';
+import { sendPromptToAssistant } from '@/services/assistant-handoff';
+import { sendPhoenixIntelligenceAlert } from '@/services/phoenix-ai-bridge';
 
-
-// ── Static HS2 sector breakdown per chokepoint ────────────────────────────────
-// Based on IEA/UNCTAD estimated trade composition. Updated periodically.
-// Each entry: [label, share (0-100), color]
-const CHOKEPOINT_HS2_SECTORS: Record<string, Array<{ label: string; share: number; color: string }>> = {
-  suez:            [{ label: 'Energy', share: 30, color: '#f97316' }, { label: 'Machinery', share: 22, color: '#3b82f6' }, { label: 'Chemicals', share: 16, color: '#a855f7' }, { label: 'Food', share: 14, color: '#22c55e' }, { label: 'Other', share: 18, color: '#64748b' }],
-  malacca_strait:  [{ label: 'Energy', share: 34, color: '#f97316' }, { label: 'Electronics', share: 25, color: '#3b82f6' }, { label: 'Chemicals', share: 14, color: '#a855f7' }, { label: 'Food', share: 12, color: '#22c55e' }, { label: 'Other', share: 15, color: '#64748b' }],
-  hormuz_strait:   [{ label: 'Energy', share: 78, color: '#f97316' }, { label: 'Chemicals', share: 9, color: '#a855f7' }, { label: 'Food', share: 7, color: '#22c55e' }, { label: 'Other', share: 6, color: '#64748b' }],
-  bab_el_mandeb:   [{ label: 'Energy', share: 32, color: '#f97316' }, { label: 'Machinery', share: 20, color: '#3b82f6' }, { label: 'Chemicals', share: 15, color: '#a855f7' }, { label: 'Food', share: 13, color: '#22c55e' }, { label: 'Other', share: 20, color: '#64748b' }],
-  panama:          [{ label: 'Bulk', share: 28, color: '#eab308' }, { label: 'Energy', share: 18, color: '#f97316' }, { label: 'Containers', share: 35, color: '#3b82f6' }, { label: 'Other', share: 19, color: '#64748b' }],
-  taiwan_strait:   [{ label: 'Electronics', share: 40, color: '#3b82f6' }, { label: 'Machinery', share: 22, color: '#6366f1' }, { label: 'Energy', share: 14, color: '#f97316' }, { label: 'Chemicals', share: 12, color: '#a855f7' }, { label: 'Other', share: 12, color: '#64748b' }],
-  cape_of_good_hope: [{ label: 'Bulk', share: 35, color: '#eab308' }, { label: 'Energy', share: 22, color: '#f97316' }, { label: 'Containers', share: 28, color: '#3b82f6' }, { label: 'Other', share: 15, color: '#64748b' }],
-  gibraltar:       [{ label: 'Containers', share: 30, color: '#3b82f6' }, { label: 'Energy', share: 25, color: '#f97316' }, { label: 'Bulk', share: 20, color: '#eab308' }, { label: 'Other', share: 25, color: '#64748b' }],
-  bosphorus:       [{ label: 'Energy', share: 58, color: '#f97316' }, { label: 'Bulk', share: 18, color: '#eab308' }, { label: 'Containers', share: 14, color: '#3b82f6' }, { label: 'Other', share: 10, color: '#64748b' }],
-};
-
-function renderSectorRing(sectors: Array<{ label: string; share: number; color: string }>): string {
-  const R = 28;
-  const cx = 36;
-  const cy = 36;
-  const circumference = 2 * Math.PI * R;
-  let cumulativeOffset = 0;
-  const segments = sectors.map(s => {
-    const dash = (s.share / 100) * circumference;
-    const segment = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${s.color}" stroke-width="10" stroke-dasharray="${dash.toFixed(2)} ${(circumference - dash).toFixed(2)}" stroke-dashoffset="${(-cumulativeOffset).toFixed(2)}" />`;
-    cumulativeOffset += dash;
-    return segment;
-  });
-  const legend = sectors.map(s => `<span class="sector-legend-item"><span class="sector-dot" style="background:${s.color}"></span>${escapeHtml(s.label)}&nbsp;${s.share}%</span>`).join(' \u00B7 ');
-  return `
-    <div class="sector-ring-wrap">
-      <svg width="72" height="72" viewBox="0 0 72 72" style="transform:rotate(-90deg)">${segments.join('')}</svg>
-      <div class="sector-legend">${legend}</div>
-    </div>`;
-}
-
-function formatPositionSource(source: string): string {
-  if (source === 'POSITION_SOURCE_WINGBITS') {
-    return '<a href="https://wingbits.com?utm_source=worldmonitor&utm_medium=referral&utm_campaign=worldmonitor" target="_blank" rel="noopener" style="color:inherit">wingbits.com</a>';
-  }
-  if (source === 'POSITION_SOURCE_OPENSKY') {
-    return '<a href="https://opensky-network.org" target="_blank" rel="noopener" style="color:inherit">opensky-network.org</a>';
-  }
-  return escapeHtml(source);
-}
-
-function formatMilitaryFlightSource(source: string | undefined): string {
-  if (!source) return escapeHtml(t('popups.militaryFlight.attribution'));
-  const providers: Record<string, { label: string; url: string }> = {
-    'adsb.lol': { label: 'adsb.lol (ODbL)', url: 'https://api.adsb.lol' },
-    'airplanes.live': { label: 'airplanes.live', url: 'https://api.airplanes.live' },
-    'adsb.fi': { label: 'adsb.fi', url: 'https://opendata.adsb.fi' },
-    wingbits: { label: 'Wingbits', url: 'https://wingbits.com' },
-    opensky: { label: 'OpenSky Network', url: 'https://opensky-network.org' },
-  };
-  const provider = providers[source];
-  const renderedSource = provider
-    ? `<a href="${provider.url}" target="_blank" rel="noopener" style="color:inherit">${provider.label}</a>`
-    : escapeHtml(source);
-  return `${escapeHtml(t('popups.source'))}: ${renderedSource}`;
-}
-
-function fmtUtcTime(utc: string | undefined): string {
-  if (!utc) return '\u2014';
-  const d = new Date(utc.includes('T') ? utc : utc.replace(' ', 'T') + 'Z');
-  return Number.isNaN(d.getTime()) ? '\u2014' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function fmtDelayMin(min: number | undefined): string {
-  if (min === undefined || min === 0) return '';
-  return `<span style="color:${min > 0 ? '#f97316' : '#22c55e'};font-size:calc(10px * var(--wm-panel-effective-scale, 1));margin-left:3px">${min > 0 ? '+' : ''}${min}m</span>`;
-}
-
-export type PopupType = 'conflict' | 'hotspot' | 'earthquake' | 'weather' | 'base' | 'waterway' | 'apt' | 'cyberThreat' | 'nuclear' | 'economic' | 'irradiator' | 'pipeline' | 'cable' | 'cable-advisory' | 'repair-ship' | 'outage' | 'datacenter' | 'datacenterCluster' | 'ais' | 'protest' | 'protestCluster' | 'flight' | 'aircraft' | 'militaryFlight' | 'militaryVessel' | 'militaryFlightCluster' | 'militaryVesselCluster' | 'natEvent' | 'port' | 'spaceport' | 'mineral' | 'startupHub' | 'cloudRegion' | 'techHQ' | 'accelerator' | 'techEvent' | 'techHQCluster' | 'techEventCluster' | 'techActivity' | 'geoActivity' | 'stockExchange' | 'financialCenter' | 'centralBank' | 'commodityHub' | 'iranEvent' | 'gpsJamming' | 'radiation';
+export type PopupType = 'conflict' | 'hotspot' | 'earthquake' | 'weather' | 'base' | 'waterway' | 'apt' | 'cyberThreat' | 'nuclear' | 'economic' | 'irradiator' | 'pipeline' | 'cable' | 'cable-advisory' | 'repair-ship' | 'outage' | 'datacenter' | 'datacenterCluster' | 'ais' | 'protest' | 'protestCluster' | 'flight' | 'militaryFlight' | 'militaryVessel' | 'militaryFlightCluster' | 'militaryVesselCluster' | 'natEvent' | 'port' | 'spaceport' | 'mineral' | 'startupHub' | 'cloudRegion' | 'techHQ' | 'accelerator' | 'techEvent' | 'techHQCluster' | 'techEventCluster' | 'techActivity' | 'geoActivity' | 'stockExchange' | 'financialCenter' | 'centralBank' | 'commodityHub' | 'iranEvent' | 'gpsJamming';
 
 interface TechEventPopupData {
   id: string;
@@ -145,8 +60,9 @@ interface GpsJammingPopupData {
   lon: number;
   level: 'medium' | 'high';
   pct: number;
-  affectedAircraft: number;
-  totalAircraft: number;
+  good: number;
+  bad: number;
+  total: number;
 }
 
 interface IranEventPopupData {
@@ -233,7 +149,7 @@ interface DatacenterClusterData {
 
 interface PopupData {
   type: PopupType;
-  data: ConflictZone | Hotspot | Earthquake | WeatherAlert | MilitaryBase | StrategicWaterway | APTGroup | CyberThreat | NuclearFacility | EconomicCenter | GammaIrradiator | Pipeline | UnderseaCable | CableAdvisory | RepairShip | InternetOutage | AIDataCenter | AisDisruptionEvent | SocialUnrestEvent | AirportDelayAlert | PositionSample | MilitaryFlight | MilitaryVessel | MilitaryFlightCluster | MilitaryVesselCluster | NaturalEvent | Port | Spaceport | CriticalMineralProject | StartupHub | CloudRegion | TechHQ | Accelerator | TechEventPopupData | TechHQClusterData | TechEventClusterData | ProtestClusterData | DatacenterClusterData | TechHubActivity | GeoHubActivity | StockExchangePopupData | FinancialCenterPopupData | CentralBankPopupData | CommodityHubPopupData | IranEventPopupData | GpsJammingPopupData | RadiationObservation;
+  data: ConflictZone | Hotspot | Earthquake | WeatherAlert | MilitaryBase | StrategicWaterway | APTGroup | CyberThreat | NuclearFacility | EconomicCenter | GammaIrradiator | Pipeline | UnderseaCable | CableAdvisory | RepairShip | InternetOutage | AIDataCenter | AisDisruptionEvent | SocialUnrestEvent | AirportDelayAlert | MilitaryFlight | MilitaryVessel | MilitaryFlightCluster | MilitaryVesselCluster | NaturalEvent | Port | Spaceport | CriticalMineralProject | StartupHub | CloudRegion | TechHQ | Accelerator | TechEventPopupData | TechHQClusterData | TechEventClusterData | ProtestClusterData | DatacenterClusterData | TechHubActivity | GeoHubActivity | StockExchangePopupData | FinancialCenterPopupData | CentralBankPopupData | CommodityHubPopupData | IranEventPopupData | GpsJammingPopupData;
   relatedNews?: NewsItem[];
   x: number;
   y: number;
@@ -245,38 +161,27 @@ export class MapPopup {
   private onClose?: () => void;
   private cableAdvisories: CableAdvisory[] = [];
   private repairShips: RepairShip[] = [];
-  private chokepointData: GetChokepointStatusResponse | null = null;
-  private transitChart: TransitChart | null = null;
-  // Session-scoped cache: history is now lazy-loaded via GetChokepointHistory
-  // when a waterway popup opens (main status RPC omits it to keep payloads small).
-  private static historyCache = new Map<string, TransitDayCount[]>();
-  private static historyInflight = new Set<string>();
   private isMobileSheet = false;
   private sheetTouchStartY: number | null = null;
   private sheetCurrentOffset = 0;
   private readonly mobileDismissThreshold = 96;
   private outsideListenerTimeoutId: number | null = null;
-  private mapPopupHistoryOpen: OverlayOpenHandle | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
   }
 
-  public setChokepointData(data: GetChokepointStatusResponse | null): void {
-    this.chokepointData = data;
-  }
-
   public show(data: PopupData): void {
-    this.hide('replacement');
+    this.hide();
 
     this.isMobileSheet = isMobileDevice();
     this.popup = document.createElement('div');
     this.popup.className = this.isMobileSheet ? 'map-popup map-popup-sheet' : 'map-popup';
 
     const content = this.renderContent(data);
-    setTrustedHtml(this.popup, trustedHtml(this.isMobileSheet
+    this.popup.innerHTML = this.isMobileSheet
       ? `<button class="map-popup-sheet-handle" aria-label="${t('common.close')}"></button>${content}`
-      : content, "legacy direct innerHTML migration"));
+      : content;
 
     // Get container's viewport position for absolute positioning
     const containerRect = this.container.getBoundingClientRect();
@@ -292,123 +197,23 @@ export class MapPopup {
     // Append to body to avoid container overflow clipping
     document.body.appendChild(this.popup);
 
-    // Reconcile the cached height against reality AFTER the frame has painted.
-    // rAF alone is not enough: rAF callbacks run before that frame's paint, and
-    // INP measures input→next paint, so an offsetHeight read there is still
-    // inside the interaction window. rAF + setTimeout(0) lands after it.
-    // The element is captured so a popup opened in the meantime (show() builds a
-    // fresh node) cannot be measured and filed under this popup's type.
-    if (!this.isMobileSheet) {
-      const popupType = data.type;
-      const openedPopup = this.popup;
-      // Captured now: positionDesktopPopup has already run, so this is the height
-      // THIS popup was placed with.
-      const positionedWith = this.lastPositionedHeight;
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          if (this.popup !== openedPopup) return;
-          this.refreshHeightCache(popupType, data, containerRect, positionedWith);
-        }, 0);
-      });
-    }
+    // Close button handler
+    this.popup.querySelector('.popup-close')?.addEventListener('click', () => this.hide());
+    this.popup.querySelector('.map-popup-sheet-handle')?.addEventListener('click', () => this.hide());
 
-    // Mount transit chart for waterway popups after DOM insertion
-    if (data.type === 'waterway') {
-      const waterway = data.data as StrategicWaterway;
-      const cp = this.chokepointData?.chokepoints?.find(
-        c => c.id === waterway.chokepointId,
-      );
-      const chartEl = this.popup.querySelector<HTMLElement>('[data-transit-chart]');
-      const cpId = cp?.id ?? '';
-      const isPro = hasPremiumAccess(getAuthState());
-
-      if (chartEl && cpId && isPro) {
-        const cached = MapPopup.historyCache.get(cpId);
-        if (cached && cached.length) {
-          this.transitChart = new TransitChart();
-          this.transitChart.mount(chartEl, cached);
-        } else if (!MapPopup.historyInflight.has(cpId)) {
-          // We cache ONLY non-empty successful responses. An empty-array result
-          // or error is not cached, so re-opening the popup retries. Caching []
-          // would poison the chokepoint for the session — empty-array is
-          // truthy in JS, so `cached && cached.length` is false AND
-          // `!cached` is also false → neither branch fires, popup stuck on
-          // "Loading…". The /get-chokepoint-history gateway tier is "slow"
-          // (5-min CF edge cache) so retries stay cheap.
-          MapPopup.historyInflight.add(cpId);
-          void fetchChokepointHistory(cpId).then(resp => {
-            MapPopup.historyInflight.delete(cpId);
-            // Re-query keyed by cpId — if the user opened a different popup
-            // since this fetch started, the live [data-transit-chart] element
-            // belongs to the NEW chokepoint. Matching by id prevents mounting
-            // A's history into B's chart container.
-            const liveEl = this.popup?.querySelector<HTMLElement>(`[data-transit-chart-id="${cpId}"]`);
-            if (!liveEl) return;
-            if (resp.history.length) {
-              MapPopup.historyCache.set(cpId, resp.history);
-              liveEl.textContent = '';
-              this.transitChart = new TransitChart();
-              this.transitChart.mount(liveEl, resp.history);
-            } else {
-              liveEl.textContent = t('components.supplyChain.historyUnavailable') || 'History unavailable';
-            }
-          }).catch(() => {
-            MapPopup.historyInflight.delete(cpId);
-            const liveEl = this.popup?.querySelector<HTMLElement>(`[data-transit-chart-id="${cpId}"]`);
-            if (liveEl) liveEl.textContent = t('components.supplyChain.historyUnavailable') || 'History unavailable';
-          });
-        }
-      }
-      // Track PRO gate impression for transit chart — we always render the gate
-      // for non-PRO users on chokepoints (history is a PRO feature); this
-      // doesn't depend on whether history has resolved.
-      if (cpId && !isPro) {
-        trackGateHit('chokepoint-transit-chart');
-      }
-
-      // Mount HS2 sector ring chart for PRO users
-      const sectors = CHOKEPOINT_HS2_SECTORS[waterway.chokepointId];
-      if (sectors?.length) {
-        const ringEl = this.popup.querySelector<HTMLElement>(`[data-hs2-ring="${waterway.chokepointId}"]`);
-        if (ringEl) {
-          new HS2RingChart().mount(ringEl, sectors);
-        } else if (!hasPremiumAccess(getAuthState())) {
-          trackGateHit('chokepoint-sector-ring');
-        }
-      }
-    }
-
-    // Close button handler via event delegation on the popup element.
-    // This avoids re-querying and re-attaching listeners after innerHTML.
-    this.popup.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      if (target.closest('.popup-close') || target.closest('.map-popup-sheet-handle')) {
-        this.hide();
-        return;
-      }
-      const toggle = target.closest('.cluster-toggle') as HTMLButtonElement | null;
-      if (toggle) {
-        const hidden = toggle.previousElementSibling as HTMLElement | null;
-        if (!hidden) return;
-        const expanded = hidden.style.display !== 'none';
-        hidden.style.display = expanded ? 'none' : '';
-        toggle.textContent = expanded ? (toggle.dataset.more ?? '') : (toggle.dataset.less ?? '');
-      }
-    });
+    this.bindOperationalActions(data);
 
     if (this.isMobileSheet) {
-      this.mapPopupHistoryOpen = overlayHistory.openCancelable('map-popup', (origin) => this.hide(origin));
       this.popup.addEventListener('touchstart', this.handleSheetTouchStart, { passive: true });
       this.popup.addEventListener('touchmove', this.handleSheetTouchMove, { passive: false });
       this.popup.addEventListener('touchend', this.handleSheetTouchEnd);
       this.popup.addEventListener('touchcancel', this.handleSheetTouchEnd);
-      const popup = this.popup;
       requestAnimationFrame(() => {
-        if (this.popup !== popup) return;
-        popup.classList.add('open');
+        if (!this.popup) return;
+        this.popup.classList.add('open');
         // Remove will-change after slide-in transition to free GPU memory
-        popup.addEventListener('transitionend', () => {
-          if (this.popup === popup) popup.style.willChange = 'auto';
+        this.popup.addEventListener('transitionend', () => {
+          if (this.popup) this.popup.style.willChange = 'auto';
         }, { once: true });
       });
     }
@@ -425,119 +230,14 @@ export class MapPopup {
     }, 0);
   }
 
-  public showRouteBreakdown(
-    segment: TradeRouteSegment,
-    chokepointIds: string[],
-    x: number,
-    y: number,
-  ): void {
-    this.hide();
-
-    // Pick the waypoint with the highest disruption score — this is the driver of the arc
-    // color computed in refreshTradeRouteStatus() and must match what the user sees on the arc.
-    const allCps = this.chokepointData?.chokepoints ?? [];
-    const primaryCpId =
-      chokepointIds
-        .map(id => ({ id, score: allCps.find(c => c.id === id)?.disruptionScore ?? 0 }))
-        .sort((a, b) => b.score - a.score)[0]?.id ?? chokepointIds[0] ?? '';
-    const cp = allCps.find(c => c.id === primaryCpId);
-    const sectors = primaryCpId ? (CHOKEPOINT_HS2_SECTORS[primaryCpId] ?? []) : [];
-
-    const tierLabel: Record<string, string> = {
-      WAR_RISK_TIER_WAR_ZONE: 'War Zone', WAR_RISK_TIER_CRITICAL: 'Critical',
-      WAR_RISK_TIER_HIGH: 'High', WAR_RISK_TIER_ELEVATED: 'Elevated',
-      WAR_RISK_TIER_NORMAL: 'Normal',
-    };
-    const tierColor: Record<string, string> = {
-      WAR_RISK_TIER_WAR_ZONE: '#ef4444', WAR_RISK_TIER_CRITICAL: '#ef4444',
-      WAR_RISK_TIER_HIGH: '#f59e0b', WAR_RISK_TIER_ELEVATED: '#f59e0b',
-      WAR_RISK_TIER_NORMAL: 'var(--text-dim,#888)',
-    };
-
-    const tier = cp?.warRiskTier ?? 'WAR_RISK_TIER_NORMAL';
-    const disruptionScore = cp?.disruptionScore ?? 0;
-    const scoreColor = disruptionScore > 70 ? '#ef4444' : disruptionScore > 30 ? '#f59e0b' : 'var(--text-dim,#888)';
-
-    const topSectors = sectors.slice(0, 2);
-    const sectorHtml = topSectors.length
-      ? topSectors.map(s =>
-          `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px">` +
-          `<span style="width:8px;height:8px;border-radius:50%;background:${s.color};display:inline-block"></span>` +
-          `<span style="font-size:calc(10px * var(--wm-panel-effective-scale, 1))">${escapeHtml(s.label)} ${s.share}%</span></span>`
-        ).join('')
-      : `<span style="font-size:calc(10px * var(--wm-panel-effective-scale, 1));opacity:.5">No sector data</span>`;
-
-    const html = `
-      <div class="popup-header">
-        <span class="popup-title" style="font-size:calc(12px * var(--wm-panel-effective-scale, 1))">${escapeHtml(segment.routeName)}</span>
-        <button class="popup-close" aria-label="Close">×</button>
-      </div>
-      <div class="popup-body" style="padding:8px 12px;min-width:200px">
-        ${cp ? `<div style="font-size:calc(11px * var(--wm-panel-effective-scale, 1));font-weight:600;margin-bottom:6px">${escapeHtml(cp.name)}</div>` : ''}
-        <div style="display:flex;gap:10px;margin-bottom:6px">
-          <span style="font-size:calc(10px * var(--wm-panel-effective-scale, 1));opacity:.6">Disruption</span>
-          <span style="font-size:calc(10px * var(--wm-panel-effective-scale, 1));font-weight:600;color:${scoreColor}">${disruptionScore}/100</span>
-        </div>
-        <div style="display:flex;gap:10px;margin-bottom:6px">
-          <span style="font-size:calc(10px * var(--wm-panel-effective-scale, 1));opacity:.6">War Risk</span>
-          <span style="font-size:calc(10px * var(--wm-panel-effective-scale, 1));font-weight:600;color:${tierColor[tier] ?? 'inherit'}">${tierLabel[tier] ?? 'Normal'}</span>
-        </div>
-        <div style="margin-top:4px">${sectorHtml}</div>
-      </div>`;
-
-    this.isMobileSheet = false;
-    this.popup = document.createElement('div');
-    this.popup.className = 'map-popup map-popup-route-breakdown';
-    setTrustedHtml(this.popup, trustedHtml(html, "legacy direct innerHTML migration"));
-
-    const containerRect = this.container.getBoundingClientRect();
-    this.positionDesktopPopup({ x, y, type: 'waterway', data: {} as never }, containerRect);
-    document.body.appendChild(this.popup);
-
-    this.popup.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).closest('.popup-close')) this.hide();
-    });
-
-    if (this.outsideListenerTimeoutId !== null) clearTimeout(this.outsideListenerTimeoutId);
-    this.outsideListenerTimeoutId = window.setTimeout(() => {
-      this.outsideListenerTimeoutId = null;
-      document.addEventListener('click', this.handleOutsideClick);
-      document.addEventListener('keydown', this.handleEscapeKey);
-    }, 200);
-  }
-
-  /**
-   * Measured desktop popup height, keyed by popup type (#4487 INP).
-   *
-   * Reading `offsetHeight` forces a synchronous layout of the whole document,
-   * and this ran inside the click handler of every marker across all three map
-   * renderers — the append/measure/remove dance below was a full layout flush on
-   * the very task INP measures. Heights are near-constant per popup type, so the
-   * first popup of a type pays the measurement and every later one reuses it.
-   *
-   * Static so the cache survives the per-open `MapPopup` churn. A stale entry is
-   * self-correcting in the direction that matters: an under-estimate is pulled
-   * back by `clampPopupToViewport`, and `refreshHeightCache` re-measures after
-   * paint — off the interaction critical path — so the entry converges.
-   */
-  private static readonly heightByType = new Map<string, number>();
-
-  /** Height delta worth a visible reposition after the post-paint re-measure. */
-  private static readonly HEIGHT_DRIFT_PX = 12;
-
-  /** Height `applyDesktopPosition` last used, so the re-measure can detect drift. */
-  private lastPositionedHeight: number | null = null;
-
   private positionDesktopPopup(data: PopupData, containerRect: DOMRect): void {
     if (!this.popup) return;
 
-    const cached = MapPopup.heightByType.get(data.type);
-    if (cached !== undefined) {
-      this.applyDesktopPosition(data, containerRect, cached);
-      return;
-    }
+    const popupWidth = 380;
+    const bottomBuffer = 50; // Buffer from viewport bottom
+    const topBuffer = 60; // Header height
 
-    // First popup of this type: measure off-screen, then remember it.
+    // Temporarily append popup off-screen to measure actual height
     this.popup.style.visibility = 'hidden';
     this.popup.style.top = '0';
     this.popup.style.left = '-9999px';
@@ -545,47 +245,6 @@ export class MapPopup {
     const popupHeight = this.popup.offsetHeight;
     document.body.removeChild(this.popup);
     this.popup.style.visibility = '';
-    MapPopup.heightByType.set(data.type, popupHeight);
-
-    this.applyDesktopPosition(data, containerRect, popupHeight);
-  }
-
-  /**
-   * Re-measure the open popup, update the type cache, and correct the position
-   * if the height we positioned with was materially wrong.
-   *
-   * Repositioning matters because the cache key is the popup TYPE, and some
-   * types are not one layout: a `waterway` popup renders a transit chart and an
-   * HS2 ring only for entitled users, so its height genuinely varies within the
-   * key. Clamping alone only rescues downward overflow; an over-estimate would
-   * otherwise leave the popup flipped above the click for no reason.
-   */
-  private refreshHeightCache(
-    type: string,
-    data: PopupData,
-    containerRect: DOMRect,
-    positionedWith: number | null,
-  ): void {
-    if (!this.popup || this.isMobileSheet) return;
-    const measured = this.popup.offsetHeight;
-    if (measured <= 0) return;
-    MapPopup.heightByType.set(type, measured);
-
-    // Sub-pixel and single-line differences are not worth a visible move.
-    if (positionedWith !== null && Math.abs(measured - positionedWith) > MapPopup.HEIGHT_DRIFT_PX) {
-      this.applyDesktopPosition(data, containerRect, measured);
-      return;
-    }
-    this.clampPopupToViewport();
-  }
-
-  private applyDesktopPosition(data: PopupData, containerRect: DOMRect, popupHeight: number): void {
-    if (!this.popup) return;
-    this.lastPositionedHeight = popupHeight;
-
-    const popupWidth = 380;
-    const bottomBuffer = 50; // Buffer from viewport bottom
-    const topBuffer = 60; // Header height
 
     // Convert container-relative coords to viewport coords
     const viewportX = containerRect.left + data.x;
@@ -624,20 +283,6 @@ export class MapPopup {
 
     this.popup.style.left = `${left}px`;
     this.popup.style.top = `${top}px`;
-  }
-
-  // Called after async content (e.g. Wingbits live data) makes the popup taller.
-  // Nudges the popup upward so it never extends below the viewport.
-  private clampPopupToViewport(): void {
-    if (!this.popup || this.isMobileSheet) return;
-    const rect = this.popup.getBoundingClientRect();
-    const bottomBuffer = 20;
-    const topBuffer = 60;
-    const overflow = rect.bottom - (window.innerHeight - bottomBuffer);
-    if (overflow > 0) {
-      const currentTop = Number.parseFloat(this.popup.style.top) || 0;
-      this.popup.style.top = `${Math.max(topBuffer, currentTop - overflow)}px`;
-    }
   }
 
   private handleOutsideClick = (e: Event) => {
@@ -698,20 +343,13 @@ export class MapPopup {
     this.popup.classList.add('open');
   };
 
-  public hide(origin: OverlayCloseOrigin = 'control'): void {
-    this.transitChart?.destroy();
-    this.transitChart = null;
-
-    this.mapPopupHistoryOpen?.cancel();
-    this.mapPopupHistoryOpen = null;
-
+  public hide(): void {
     if (this.outsideListenerTimeoutId !== null) {
       window.clearTimeout(this.outsideListenerTimeoutId);
       this.outsideListenerTimeoutId = null;
     }
 
     if (this.popup) {
-      if (this.isMobileSheet && origin === 'control') overlayHistory.close('map-popup');
       this.popup.removeEventListener('touchstart', this.handleSheetTouchStart);
       this.popup.removeEventListener('touchmove', this.handleSheetTouchMove);
       this.popup.removeEventListener('touchend', this.handleSheetTouchEnd);
@@ -738,8 +376,134 @@ export class MapPopup {
   }
 
   private renderContent(data: PopupData): string {
-    switch (data.type) {
+    return `${this.renderCoreContent(data)}${this.renderOperationalActions(data)}`;
+  }
 
+  private renderOperationalActions(data: PopupData): string {
+    const item = normalizeMapPopupIntelligence(data.type, data.data);
+    const canSaveMarker = Number.isFinite(item.lat) && Number.isFinite(item.lon);
+    return `
+      <div class="v-map-popup-intelligence-actions" aria-label="Project V intelligence actions">
+        <span>PROJECT V // SIGNAL HANDOFF</span>
+        <div>
+          ${canSaveMarker ? '<button type="button" data-v-map-action="marker">SAVE MARKER</button>' : ''}
+          <button type="button" data-v-map-action="timeline">TIMELINE</button>
+          <button type="button" data-v-map-action="alert">CREATE ALERT</button>
+          <button type="button" data-v-map-action="case">ADD TO CASE</button>
+          <button type="button" data-v-map-action="phoenix">SEND TO PHOENIX</button>
+          <button type="button" data-v-map-action="sentinel">WATCH WITH PHOENIX</button>
+          <button type="button" data-v-map-action="analyze">ASK LOCAL AI</button>
+        </div>
+        <small>MAP POPUP DATA REMAINS UNVERIFIED UNTIL ANALYST REVIEW</small>
+      </div>
+    `;
+  }
+
+  private bindOperationalActions(data: PopupData): void {
+    if (!this.popup) return;
+    const item = normalizeMapPopupIntelligence(data.type, data.data);
+    this.popup.querySelectorAll<HTMLButtonElement>('[data-v-map-action]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const action = button.dataset.vMapAction;
+        if (!action) return;
+        void this.handleOperationalAction(action, item, button);
+      });
+    });
+  }
+
+  private async handleOperationalAction(action: string, item: MapPopupIntelligenceItem, button: HTMLButtonElement): Promise<void> {
+    const original = button.textContent ?? '';
+    button.disabled = true;
+    button.textContent = 'WORKING…';
+    try {
+      if (action === 'marker') {
+        if (!Number.isFinite(item.lat) || !Number.isFinite(item.lon)) throw new Error('This signal does not contain usable coordinates.');
+        saveMapOperationItem({
+          name: item.title,
+          type: 'marker',
+          points: [{ lat: item.lat!, lon: item.lon! }],
+          notes: [item.detail, item.location ? `Location: ${item.location}` : '', item.sourceUrl ? `Source: ${item.sourceUrl}` : ''].filter(Boolean).join('\n'),
+          tags: [item.category.toLowerCase(), item.severity, item.source.toLowerCase()],
+          color: item.severity === 'critical' || item.severity === 'high' ? '#c92f3e' : item.severity === 'elevated' ? '#d9902f' : '#3b82b6',
+          visible: true,
+        });
+        button.textContent = 'MARKER SAVED';
+      } else if (action === 'timeline') {
+        window.dispatchEvent(new CustomEvent('project-v-map-intelligence-action', { detail: { action: 'timeline', item } }));
+        button.textContent = 'ADDED';
+      } else if (action === 'alert') {
+        window.dispatchEvent(new CustomEvent('project-v-map-intelligence-action', { detail: { action: 'alert', item } }));
+        button.textContent = 'ALERT CREATED';
+      } else if (action === 'case') {
+        const result = await sendToCaseDesk({
+          type: 'event',
+          title: item.title,
+          detail: item.detail,
+          confidence: 'unverified',
+          source: item.source,
+          sourceUrl: item.sourceUrl,
+          occurredAt: item.occurredAt,
+          metadata: {
+            'Map signal type': item.category,
+            Severity: item.severity,
+            Location: item.location ?? '',
+            Coordinates: Number.isFinite(item.lat) && Number.isFinite(item.lon) ? `${item.lat}, ${item.lon}` : '',
+          },
+        });
+        button.textContent = result ? 'FILED' : original;
+      } else if (action === 'phoenix') {
+        const coordinateText = Number.isFinite(item.lat) && Number.isFinite(item.lon) ? `${item.lat}, ${item.lon}` : 'not supplied';
+        const result = await sendPhoenixIntelligenceAlert({
+          id: `map-signal:${item.id}:${item.occurredAt}`,
+          title: item.title,
+          severity: item.severity,
+          summary: [
+            `Category: ${item.category}`,
+            `Detail: ${item.detail || 'No detail supplied.'}`,
+            `Location: ${item.location ?? 'not supplied'}`,
+            `Coordinates: ${coordinateText}`,
+            item.sourceUrl ? `Source URL: ${item.sourceUrl}` : '',
+            'Status: unverified Watchtower map signal pending analyst review.',
+          ].filter(Boolean).join(' '),
+          timestamp: new Date(item.occurredAt).toISOString(),
+          source: item.source || 'Project V Watchtower Map',
+          location: item.location,
+        });
+        button.textContent = result.ok ? (result.duplicate ? 'ALREADY SENT' : 'SENT') : result.message.slice(0, 24).toUpperCase();
+      } else if (action === 'sentinel') {
+        window.dispatchEvent(new CustomEvent('project-v-map-intelligence-action', { detail: { action: 'sentinel', item } }));
+        button.textContent = 'SENTINEL ARMED';
+      } else if (action === 'analyze') {
+        const coordinateText = Number.isFinite(item.lat) && Number.isFinite(item.lon) ? `${item.lat}, ${item.lon}` : 'not supplied';
+        await sendPromptToAssistant(
+          `Analyze this selected Watchtower map signal. Treat it as unverified map data, compare it with current workspace sources, identify corroboration or contradictions, and recommend what should be verified next.
+
+Title: ${item.title}
+Category: ${item.category}
+Severity: ${item.severity}
+Location: ${item.location ?? 'not supplied'}
+Coordinates: ${coordinateText}
+Source: ${item.source}
+Detail: ${item.detail || 'No detail supplied.'}`,
+          'workspace',
+          false,
+        );
+        button.textContent = 'SENT TO AI';
+      }
+    } catch (error) {
+      button.textContent = error instanceof Error ? error.message.slice(0, 28).toUpperCase() : 'ACTION FAILED';
+    } finally {
+      window.setTimeout(() => {
+        if (!button.isConnected) return;
+        button.disabled = false;
+        button.textContent = original;
+      }, 1800);
+    }
+  }
+
+  private renderCoreContent(data: PopupData): string {
+    switch (data.type) {
       case 'conflict':
         return this.renderConflictPopup(data.data as ConflictZone);
       case 'hotspot':
@@ -784,8 +548,6 @@ export class MapPopup {
         return this.renderProtestClusterPopup(data.data as ProtestClusterData);
       case 'flight':
         return this.renderFlightPopup(data.data as AirportDelayAlert);
-      case 'aircraft':
-        return this.renderAircraftPopup(data.data as PositionSample);
       case 'militaryFlight':
         return this.renderMilitaryFlightPopup(data.data as MilitaryFlight);
       case 'militaryVessel':
@@ -828,61 +590,10 @@ export class MapPopup {
         return this.renderIranEventPopup(data.data as IranEventPopupData);
       case 'gpsJamming':
         return this.renderGpsJammingPopup(data.data as GpsJammingPopupData);
-      case 'radiation':
-        return this.renderRadiationPopup(data.data as RadiationObservation);
       default:
         return '';
     }
   }
-
-  private renderRadiationPopup(observation: RadiationObservation): string {
-    const severityClass = observation.severity === 'spike' ? 'high' : 'medium';
-    const delta = `${observation.delta >= 0 ? '+' : ''}${observation.delta.toFixed(1)} ${escapeHtml(observation.unit)}`;
-    const provenance = formatRadiationSources(observation);
-    const confidence = formatRadiationConfidence(observation.confidence);
-    const flags = [
-      observation.corroborated ? 'Confirmed' : '',
-      observation.conflictingSources ? 'Conflicting sources' : '',
-      observation.convertedFromCpm ? 'CPM-derived component' : '',
-    ].filter(Boolean).join(' · ');
-    return `
-      <div class="popup-header outage">
-        <span class="popup-title">☢ ${escapeHtml(observation.location.toUpperCase())}</span>
-        <span class="popup-badge ${severityClass}">${escapeHtml(observation.severity.toUpperCase())}</span>
-        <button class="popup-close" aria-label="Close">×</button>
-      </div>
-      <div class="popup-body">
-        <div class="popup-stats">
-          <div class="popup-stat">
-            <span class="stat-label">Reading</span>
-            <span class="stat-value">${observation.value.toFixed(1)} ${escapeHtml(observation.unit)}</span>
-          </div>
-          <div class="popup-stat">
-            <span class="stat-label">Baseline</span>
-            <span class="stat-value">${observation.baselineValue.toFixed(1)} ${escapeHtml(observation.unit)}</span>
-          </div>
-          <div class="popup-stat">
-            <span class="stat-label">Delta</span>
-            <span class="stat-value">${delta}</span>
-          </div>
-          <div class="popup-stat">
-            <span class="stat-label">Confidence</span>
-            <span class="stat-value">${escapeHtml(confidence)}</span>
-          </div>
-          <div class="popup-stat">
-            <span class="stat-label">Sources</span>
-            <span class="stat-value">${escapeHtml(provenance)}</span>
-          </div>
-          <div class="popup-stat">
-            <span class="stat-label">Source count</span>
-            <span class="stat-value">${observation.sourceCount}</span>
-          </div>
-        </div>
-        <p class="popup-description">${escapeHtml(observation.country)} · z-score ${observation.zScore.toFixed(2)} · ${escapeHtml(observation.freshness)}${flags ? ` · ${escapeHtml(flags)}` : ''}</p>
-      </div>
-    `;
-  }
-
 
   private renderConflictPopup(conflict: ConflictZone): string {
     const severityClass = conflict.intensity === 'high' ? 'high' : conflict.intensity === 'medium' ? 'medium' : 'low';
@@ -892,7 +603,7 @@ export class MapPopup {
       <div class="popup-header conflict">
         <span class="popup-title">${escapeHtml(conflict.name.toUpperCase())}</span>
         <span class="popup-badge ${severityClass}">${severityLabel}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-stats">
@@ -916,36 +627,20 @@ export class MapPopup {
         ${conflict.description ? `<p class="popup-description">${escapeHtml(conflict.description)}</p>` : ''}
         ${conflict.parties && conflict.parties.length > 0 ? `
           <div class="popup-section">
-            <details open>
-              <summary>${t('popups.belligerents')}</summary>
-              <div class="popup-section-content">
-                <div class="popup-tags">
-                  ${conflict.parties.map(p => `<span class="popup-tag">${escapeHtml(p)}</span>`).join('')}
-                </div>
-              </div>
-            </details>
+            <span class="section-label">${t('popups.belligerents')}</span>
+            <div class="popup-tags">
+              ${conflict.parties.map(p => `<span class="popup-tag">${escapeHtml(p)}</span>`).join('')}
+            </div>
           </div>
         ` : ''}
         ${conflict.keyDevelopments && conflict.keyDevelopments.length > 0 ? `
           <div class="popup-section">
-            <details open>
-              <summary>${t('popups.keyDevelopments')}</summary>
-              <div class="popup-section-content">
-                <ul class="popup-list">
-                  ${conflict.keyDevelopments.map(d => `<li>${escapeHtml(d)}</li>`).join('')}
-                </ul>
-              </div>
-            </details>
+            <span class="section-label">${t('popups.keyDevelopments')}</span>
+            <ul class="popup-list">
+              ${conflict.keyDevelopments.map(d => `<li>${escapeHtml(d)}</li>`).join('')}
+            </ul>
           </div>
         ` : ''}
-        <div class="popup-section">
-          <details class="conflict-history-details">
-            <summary>📜 HISTORICAL PROFILE</summary>
-            <div class="conflict-history-content">
-              <div class="popup-loading">Loading…</div>
-            </div>
-          </details>
-        </div>
       </div>
     `;
   }
@@ -1003,12 +698,6 @@ export class MapPopup {
             <span class="trend-icon">${trendIcons[displayTrend] || ''}</span>
             <span class="trend-label">${escapeHtml(displayTrend.toUpperCase())}</span>
           </div>
-          ${dynamicScore?.history && dynamicScore.history.length >= 3 ? (() => {
-            const vals = dynamicScore.history.slice(-20).map(h => h.score);
-            const lastVal = vals[vals.length - 1] ?? 3;
-            const color = lastVal >= 4 ? '#f44336' : lastVal >= 3 ? '#ff9800' : '#4caf50';
-            return sparkline(vals, color, 80, 24, 'opacity:0.9');
-          })() : ''}
         </div>
         ${dynamicScore ? `
           <div class="escalation-breakdown">
@@ -1063,43 +752,35 @@ export class MapPopup {
     // Historical context section
     const historySection = hotspot.history ? `
       <div class="popup-section history-section">
-        <details>
-          <summary>${t('popups.historicalContext')}</summary>
-          <div class="popup-section-content">
-            <div class="history-content">
-              ${hotspot.history.lastMajorEvent ? `
-                <div class="history-event">
-                  <span class="history-label">${t('popups.lastMajorEvent')}:</span>
-                  <span class="history-value">${escapeHtml(hotspot.history.lastMajorEvent)} ${hotspot.history.lastMajorEventDate ? `(${escapeHtml(hotspot.history.lastMajorEventDate)})` : ''}</span>
-                </div>
-              ` : ''}
-              ${hotspot.history.precedentDescription ? `
-                <div class="history-event">
-                  <span class="history-label">${t('popups.precedents')}:</span>
-                  <span class="history-value">${escapeHtml(hotspot.history.precedentDescription)}</span>
-                </div>
-              ` : ''}
-              ${hotspot.history.cyclicalRisk ? `
-                <div class="history-event cyclical">
-                  <span class="history-label">${t('popups.cyclicalPattern')}:</span>
-                  <span class="history-value">${escapeHtml(hotspot.history.cyclicalRisk)}</span>
-                </div>
-              ` : ''}
+        <span class="section-label">${t('popups.historicalContext')}</span>
+        <div class="history-content">
+          ${hotspot.history.lastMajorEvent ? `
+            <div class="history-event">
+              <span class="history-label">${t('popups.lastMajorEvent')}:</span>
+              <span class="history-value">${escapeHtml(hotspot.history.lastMajorEvent)} ${hotspot.history.lastMajorEventDate ? `(${escapeHtml(hotspot.history.lastMajorEventDate)})` : ''}</span>
             </div>
-          </div>
-        </details>
+          ` : ''}
+          ${hotspot.history.precedentDescription ? `
+            <div class="history-event">
+              <span class="history-label">${t('popups.precedents')}:</span>
+              <span class="history-value">${escapeHtml(hotspot.history.precedentDescription)}</span>
+            </div>
+          ` : ''}
+          ${hotspot.history.cyclicalRisk ? `
+            <div class="history-event cyclical">
+              <span class="history-label">${t('popups.cyclicalPattern')}:</span>
+              <span class="history-value">${escapeHtml(hotspot.history.cyclicalRisk)}</span>
+            </div>
+          ` : ''}
+        </div>
       </div>
     ` : '';
 
     // "Why it matters" section
     const whyItMattersSection = hotspot.whyItMatters ? `
       <div class="popup-section why-matters-section">
-        <details>
-          <summary>${t('popups.whyItMatters')}</summary>
-          <div class="popup-section-content">
-            <p class="why-matters-text">${escapeHtml(hotspot.whyItMatters)}</p>
-          </div>
-        </details>
+        <span class="section-label">${t('popups.whyItMatters')}</span>
+        <p class="why-matters-text">${escapeHtml(hotspot.whyItMatters)}</p>
       </div>
     ` : '';
 
@@ -1107,7 +788,7 @@ export class MapPopup {
       <div class="popup-header hotspot">
         <span class="popup-title">${escapeHtml(hotspot.name.toUpperCase())}</span>
         <span class="popup-badge ${severityClass}">${severityLabel}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         ${localizedSubtext ? `<div class="popup-subtitle">${escapeHtml(localizedSubtext)}</div>` : ''}
@@ -1133,31 +814,24 @@ export class MapPopup {
         ${historySection}
         ${hotspot.agencies && hotspot.agencies.length > 0 ? `
           <div class="popup-section">
-            <details open>
-              <summary>${t('popups.keyEntities')}</summary>
-              <div class="popup-section-content">
-                <div class="popup-tags">
-                  ${hotspot.agencies.map(a => `<span class="popup-tag">${escapeHtml(a)}</span>`).join('')}
-                </div>
-              </div>
-            </details>
+            <span class="section-label">${t('popups.keyEntities')}</span>
+            <div class="popup-tags">
+              ${hotspot.agencies.map(a => `<span class="popup-tag">${escapeHtml(a)}</span>`).join('')}
+            </div>
           </div>
         ` : ''}
         ${relatedNews && relatedNews.length > 0 ? `
           <div class="popup-section">
-            <details>
-              <summary>${t('popups.relatedHeadlines')}</summary>
-              <div class="popup-section-content">
-                <div class="popup-news">
-                  ${relatedNews.slice(0, 5).map(n => `
-                    <div class="popup-news-item">
-                      <span class="news-source">${escapeHtml(n.source)}</span>
-                      <a href="${sanitizeUrl(n.link)}" target="_blank" class="news-title">${escapeHtml(n.title)}</a>
-                    </div>
-                  `).join('')}
+          <div class="popup-section">
+            <span class="section-label">${t('popups.relatedHeadlines')}</span>
+            <div class="popup-news">
+              ${relatedNews.slice(0, 5).map(n => `
+                <div class="popup-news-item">
+                  <span class="news-source">${escapeHtml(n.source)}</span>
+                  <a href="${sanitizeUrl(n.link)}" target="_blank" class="news-title">${escapeHtml(n.title)}</a>
                 </div>
-              </div>
-            </details>
+              `).join('')}
+            </div>
           </div>
         ` : ''}
         <div class="hotspot-gdelt-context" data-hotspot-id="${escapeHtml(hotspot.id)}">
@@ -1180,186 +854,25 @@ export class MapPopup {
       if (!this.popup || !container.isConnected) return;
 
       if (articles.length === 0) {
-        setTrustedHtml(container, trustedHtml(`
+        container.innerHTML = `
           <div class="hotspot-gdelt-header">${t('popups.liveIntel')}</div>
           <div class="hotspot-gdelt-loading">${t('popups.noCoverage')}</div>
-        `, "legacy direct innerHTML migration"));
+        `;
         return;
       }
 
-      setTrustedHtml(container, trustedHtml(`
+      container.innerHTML = `
         <div class="hotspot-gdelt-header">${t('popups.liveIntel')}</div>
         <div class="hotspot-gdelt-articles">
           ${articles.slice(0, 5).map(article => this.renderGdeltArticle(article)).join('')}
         </div>
-      `, "legacy direct innerHTML migration"));
+      `;
     } catch (error) {
       if (container.isConnected) {
-        setTrustedHtml(container, trustedHtml(`
+        container.innerHTML = `
           <div class="hotspot-gdelt-header">${t('popups.liveIntel')}</div>
           <div class="hotspot-gdelt-loading">${t('common.error')}</div>
-        `, "legacy direct innerHTML migration"));
-      }
-    }
-  }
-
-  public loadConflictHistory(conflict: ConflictZone): void {
-    if (!this.popup) return;
-    const details = this.popup.querySelector<HTMLDetailsElement>('.conflict-history-details');
-    const content = this.popup.querySelector('.conflict-history-content');
-    if (!details || !content) return;
-
-    let loaded = false;
-
-    const onToggle = async () => {
-      if (!details.open || loaded) return;
-      loaded = true;
-
-      try {
-        const { fetchUcdpEvents, deriveConflictHistory } = await import('@/services/conflict');
-        const resp = await fetchUcdpEvents();
-
-        if (!this.popup || !content.isConnected) return;
-
-        const { conflictSince, recordedFatalities } = deriveConflictHistory(conflict, resp.data);
-
-        const rows = [
-          conflictSince
-            ? `<div class="popup-stat"><span class="stat-label">CONFLICT SINCE</span><span class="stat-value">${escapeHtml(conflictSince)}</span></div>`
-            : '',
-          conflict.peaceAgreements?.length
-            ? `<div class="popup-stat"><span class="stat-label">PEACE AGREEMENTS</span><span class="stat-value">${conflict.peaceAgreements.map(escapeHtml).join('<br>')}</span></div>`
-            : '',
-          recordedFatalities > 0
-            ? `<div class="popup-stat"><span class="stat-label">RECORDED FATALITIES</span><span class="stat-value">~${recordedFatalities.toLocaleString()}</span></div>`
-            : conflict.totalFatalities
-            ? `<div class="popup-stat"><span class="stat-label">TOTAL FATALITIES</span><span class="stat-value">${escapeHtml(conflict.totalFatalities)}</span></div>`
-            : '',
-        ].filter(Boolean).join('');
-
-        setTrustedHtml(
-          content,
-          trustedHtml(
-            rows || `<div class="popup-loading">No historical data available.</div>`,
-            'legacy direct innerHTML migration'
-          )
-        );
-      } catch {
-        if (content.isConnected) {
-          setTrustedHtml(
-            content,
-            trustedHtml(`<div class="popup-loading">Could not load history.</div>`, 'legacy direct innerHTML migration')
-          );
-        }
-      }
-    };
-
-    details.addEventListener('toggle', onToggle, { once: true });
-  }
-
-  public async loadWingbitsLiveFlight(hexCode: string): Promise<void> {
-    if (!this.popup) return;
-
-    const section = this.popup.querySelector('.wingbits-live-section');
-    if (!section) return;
-
-    try {
-      const live = await getWingbitsLiveFlight(hexCode);
-
-      if (!this.popup || !section.isConnected) return;
-
-      if (!live) {
-        setTrustedHtml(section, trustedHtml('', "legacy direct innerHTML migration"));
-        return;
-      }
-
-      const parts: string[] = [];
-      let photoHtml = '';
-
-      // Photo — built separately so it renders at the bottom after route/times/stats
-      if (live.photoUrl) {
-        const photoSrc = sanitizeUrl(live.photoUrl);
-        if (photoSrc) {
-          const photoLink = live.photoLink ? sanitizeUrl(live.photoLink) : '#';
-          const credit = live.photoCredit ? `<span class="flight-photo-credit">\u00a9 ${escapeHtml(live.photoCredit)}</span>` : '';
-          photoHtml = `<div class="flight-photo"><a href="${photoLink}" target="_blank" rel="noopener"><img src="${photoSrc}" alt="${escapeHtml(live.callsign)}" style="width:100%;border-radius:4px;display:block"></a>${credit}</div>`;
-        }
-      }
-
-      // IATA callsign + airline name header
-      if (live.callsignIata) {
-        const name = live.airlineName ? ` <span style="font-size:calc(12px * var(--wm-panel-effective-scale, 1));opacity:0.6;font-weight:400">${escapeHtml(live.airlineName)}</span>` : '';
-        parts.push(`<div style="font-weight:700;font-size:calc(15px * var(--wm-panel-effective-scale, 1));margin:4px 0">${escapeHtml(live.callsignIata)}${name}</div>`);
-      }
-
-      // Route (FROM → TO)
-      if (live.depIata && live.arrIata) {
-        const terminal = live.arrTerminal ? `<span style="font-size:calc(10px * var(--wm-panel-effective-scale, 1));opacity:0.5;margin-left:4px">T${escapeHtml(live.arrTerminal)}</span>` : '';
-        const duration = live.flightDurationMin ? `<span style="font-size:calc(11px * var(--wm-panel-effective-scale, 1));opacity:0.6">${Math.floor(live.flightDurationMin / 60)}h${live.flightDurationMin % 60 > 0 ? ` ${live.flightDurationMin % 60}m` : ''}</span>` : '';
-        parts.push(`
-          <div class="flight-route" style="display:flex;align-items:center;gap:6px;margin:8px 0 4px;font-weight:700;font-size:calc(18px * var(--wm-panel-effective-scale, 1))">
-            <span>${escapeHtml(live.depIata)}</span>
-            <span style="font-size:calc(12px * var(--wm-panel-effective-scale, 1));opacity:0.4;font-weight:400">&#9992;</span>
-            <span>${escapeHtml(live.arrIata)}${terminal}</span>
-            <span style="flex:1;text-align:right">${duration}</span>
-          </div>`);
-
-        const depSched = fmtUtcTime(live.depTimeUtc);
-        const arrSched = fmtUtcTime(live.arrTimeUtc);
-        const depEst = fmtUtcTime(live.depEstimatedUtc);
-        const arrEst = fmtUtcTime(live.arrEstimatedUtc);
-        const hasDelay = live.depDelayedMin !== 0 || live.arrDelayedMin !== 0;
-
-        parts.push(`
-          <div class="flight-times" style="font-size:calc(11px * var(--wm-panel-effective-scale, 1));display:grid;grid-template-columns:1fr auto 1fr;gap:2px 8px;margin-bottom:6px;opacity:0.85">
-            <span style="opacity:0.5;font-size:calc(10px * var(--wm-panel-effective-scale, 1));text-transform:uppercase">DEP</span>
-            <span></span>
-            <span style="opacity:0.5;font-size:calc(10px * var(--wm-panel-effective-scale, 1));text-transform:uppercase;text-align:right">ARR</span>
-            <span style="opacity:0.5;font-size:calc(10px * var(--wm-panel-effective-scale, 1))">${t('popups.flight.scheduled') || 'Sched'}</span><span></span><span style="opacity:0.5;font-size:calc(10px * var(--wm-panel-effective-scale, 1));text-align:right">${t('popups.flight.scheduled') || 'Sched'}</span>
-            <span>${depSched}</span><span style="opacity:0.3;text-align:center">\u2194</span><span style="text-align:right">${arrSched}</span>
-            ${hasDelay ? `
-            <span style="opacity:0.5;font-size:calc(10px * var(--wm-panel-effective-scale, 1))">${t('popups.flight.estimated') || 'Est'}</span><span></span><span style="opacity:0.5;font-size:calc(10px * var(--wm-panel-effective-scale, 1));text-align:right">${t('popups.flight.estimated') || 'Est'}</span>
-            <span>${depEst}${fmtDelayMin(live.depDelayedMin)}</span><span style="opacity:0.3;text-align:center">\u2194</span><span style="text-align:right">${arrEst}${fmtDelayMin(live.arrDelayedMin)}</span>` : ''}
-          </div>`);
-
-        // Book this route CTA
-        const today = new Date();
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        const bookUrl = sanitizeUrl(`https://www.google.com/travel/flights/search?q=Flights+from+${encodeURIComponent(live.depIata)}+to+${encodeURIComponent(live.arrIata)}+on+${encodeURIComponent(todayStr)}`);
-        parts.push(`<a href="${bookUrl}" target="_blank" rel="noopener" style="display:block;margin-top:8px;padding:7px 12px;background:rgba(68,255,136,.06);border:1px solid rgba(68,255,136,.18);border-radius:6px;color:var(--green,#44ff88);text-decoration:none;font-size:calc(12px * var(--wm-panel-effective-scale, 1));text-align:center">Book this route &rarr;</a>`);
-      }
-
-      // Enrichment stats row
-      const rows: string[] = [];
-      if (live.registration) rows.push(`<div class="popup-stat"><span class="stat-label">Reg</span><span class="stat-value">${escapeHtml(live.registration)}</span></div>`);
-      if (live.model) rows.push(`<div class="popup-stat"><span class="stat-label">Model</span><span class="stat-value">${escapeHtml(live.model)}</span></div>`);
-      if (live.operator) rows.push(`<div class="popup-stat"><span class="stat-label">Operator</span><span class="stat-value">${escapeHtml(live.operator)}</span></div>`);
-      if (live.verticalRate !== 0) rows.push(`<div class="popup-stat"><span class="stat-label">Climb</span><span class="stat-value">${live.verticalRate > 0 ? '+' : ''}${Math.round(live.verticalRate)} fpm</span></div>`);
-
-      if (parts.length === 0 && rows.length === 0 && !photoHtml) {
-        setTrustedHtml(section, trustedHtml('', "legacy direct innerHTML migration"));
-        return;
-      }
-
-      const statsHtml = rows.length > 0 ? `<div class="popup-stats">${rows.join('')}</div>` : '';
-      setTrustedHtml(section, trustedHtml(`
-        <div class="popup-section-label" style="font-size:calc(10px * var(--wm-panel-effective-scale, 1));opacity:0.5;text-transform:uppercase;letter-spacing:.05em;margin-top:8px">Live Data</div>
-        ${parts.join('')}
-        ${statsHtml}
-        ${photoHtml}
-      `, "legacy direct innerHTML migration"));
-      // Clamp for text content immediately, then re-clamp once the photo is sized.
-      this.clampPopupToViewport();
-      if (photoHtml) {
-        const img = section.querySelector<HTMLImageElement>('img');
-        if (img && !img.complete) {
-          img.addEventListener('load', () => { this.clampPopupToViewport(); }, { once: true });
-          img.addEventListener('error', () => { this.clampPopupToViewport(); }, { once: true });
-        }
-      }
-    } catch {
-      if (section.isConnected) {
-        setTrustedHtml(section, trustedHtml('', "legacy direct innerHTML migration"));
+        `;
       }
     }
   }
@@ -1384,15 +897,12 @@ export class MapPopup {
     const severityLabel = earthquake.magnitude >= 6 ? t('popups.earthquake.levels.major') : earthquake.magnitude >= 5 ? t('popups.earthquake.levels.moderate') : t('popups.earthquake.levels.minor');
 
     const timeAgo = this.getTimeAgo(new Date(earthquake.occurredAt));
-    const isNrcan = earthquake.source === 'nrcan';
-    const sourceName = isNrcan ? 'Earthquakes Canada' : 'USGS';
-    const sourceLinkLabel = isNrcan ? t('popups.viewNRCan') : t('popups.viewUSGS');
 
     return `
       <div class="popup-header earthquake">
         <span class="popup-title magnitude">M${earthquake.magnitude.toFixed(1)}</span>
         <span class="popup-badge ${severity}">${severityLabel}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <p class="popup-location">${escapeHtml(earthquake.place)}</p>
@@ -1409,12 +919,8 @@ export class MapPopup {
             <span class="stat-label">${t('popups.time')}</span>
             <span class="stat-value">${timeAgo}</span>
           </div>
-          <div class="popup-stat">
-            <span class="stat-label">${t('popups.source')}</span>
-            <span class="stat-value">${sourceName}</span>
-          </div>
         </div>
-        <a href="${sanitizeUrl(earthquake.sourceUrl)}" target="_blank" class="popup-link">${sourceLinkLabel} →</a>
+        <a href="${sanitizeUrl(earthquake.sourceUrl)}" target="_blank" class="popup-link">${t('popups.viewUSGS')} →</a>
       </div>
     `;
   }
@@ -1438,7 +944,7 @@ export class MapPopup {
       <div class="popup-header weather ${severityClass}">
         <span class="popup-title">${escapeHtml(alert.event.toUpperCase())}</span>
         <span class="popup-badge ${severityClass}">${escapeHtml(alert.severity.toUpperCase())}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <p class="popup-headline">${escapeHtml(alert.headline)}</p>
@@ -1457,10 +963,8 @@ export class MapPopup {
     `;
   }
 
-  private getTimeUntil(date: Date | string): string {
-    const d = date instanceof Date ? date : new Date(date);
-    if (Number.isNaN(d.getTime())) return '—';
-    const ms = d.getTime() - Date.now();
+  private getTimeUntil(date: Date): string {
+    const ms = date.getTime() - Date.now();
     if (ms <= 0) return t('popups.expired');
     const hours = Math.floor(ms / (1000 * 60 * 60));
     if (hours < 1) return `${Math.floor(ms / (1000 * 60))}${t('popups.timeUnits.m')}`;
@@ -1492,7 +996,7 @@ export class MapPopup {
       <div class="popup-header base">
         <span class="popup-title">${escapeHtml(base.name.toUpperCase())}</span>
         <span class="popup-badge ${typeColors[base.type] || 'low'}">${escapeHtml(typeLabels[base.type] || base.type.toUpperCase())}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         ${base.description ? `<p class="popup-description">${escapeHtml(base.description)}</p>` : ''}
@@ -1515,64 +1019,11 @@ export class MapPopup {
   }
 
   private renderWaterwayPopup(waterway: StrategicWaterway): string {
-    const cp = this.chokepointData?.chokepoints?.find(
-      c => c.id === waterway.chokepointId,
-    );
-    // Chart is lazy-loaded via GetChokepointHistory on popup mount. Render the
-    // section only when the chokepoint is known AND upstream flagged data
-    // available — a zero-state fill (partial portwatch) means the per-id
-    // history key is also empty, so there's nothing to fetch.
-    const hasChart = !!cp && cp.transitSummary?.dataAvailable !== false;
-    const isPro = hasPremiumAccess(getAuthState());
-    const sectors = CHOKEPOINT_HS2_SECTORS[waterway.chokepointId];
-
-    // Sector mix: only show the compact SVG ring for free users (PRO users get the full HS2RingChart below)
-    const sectorSection = (sectors && !isPro)
-      ? `<div class="popup-section-title" style="margin-top:10px;font-size:calc(10px * var(--wm-panel-effective-scale, 1));text-transform:uppercase;opacity:.6;letter-spacing:.06em">Trade Sector Mix</div>
-         ${renderSectorRing(sectors)}`
-      : '';
-
-    // Transit chart is PRO-gated (real-time PortWatch data)
-    let chartSection = '';
-    if (hasChart) {
-      if (isPro) {
-        chartSection = `<div data-transit-chart="${escapeHtml(waterway.name)}" data-transit-chart-id="${escapeHtml(cp?.id ?? '')}" style="margin-top:10px;min-height:200px;display:flex;align-items:center;justify-content:center;color:var(--text-dim,#888);font-size:calc(12px * var(--wm-panel-effective-scale, 1))">${t('components.supplyChain.loadingHistory') || 'Loading transit history\u2026'}</div>`;
-      } else {
-        chartSection = `
-          <div class="sector-pro-gate" data-gate="chokepoint-transit-chart" style="position:relative;overflow:hidden;border-radius:6px;margin-top:10px;min-height:120px;background:var(--surface-elevated, #111)">
-            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px">
-              <span style="font-size:calc(16px * var(--wm-panel-effective-scale, 1))">🔒</span>
-              <span style="font-size:calc(10px * var(--wm-panel-effective-scale, 1));font-weight:600;opacity:.8">PRO</span>
-              <span style="font-size:calc(9px * var(--wm-panel-effective-scale, 1));opacity:.5">Transit History</span>
-            </div>
-          </div>`;
-      }
-    }
-
-    // Sector exposure ring is PRO-gated (canvas donut with legend)
-    let ringSection = '';
-    if (sectors) {
-      if (isPro) {
-        ringSection = `
-          <div class="popup-section-title" style="margin-top:10px;font-size:calc(10px * var(--wm-panel-effective-scale, 1));text-transform:uppercase;opacity:.6;letter-spacing:.06em">Sector Exposure</div>
-          <div data-hs2-ring="${escapeHtml(waterway.chokepointId)}" class="popup-hs2-ring-container"></div>`;
-      } else {
-        ringSection = `
-          <div class="sector-pro-gate" data-gate="chokepoint-sector-ring" style="position:relative;overflow:hidden;border-radius:6px;margin-top:10px;min-height:80px;background:var(--surface-elevated, #111)">
-            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px">
-              <span style="font-size:calc(16px * var(--wm-panel-effective-scale, 1))">🔒</span>
-              <span style="font-size:calc(10px * var(--wm-panel-effective-scale, 1));font-weight:600;opacity:.8">PRO</span>
-              <span style="font-size:calc(9px * var(--wm-panel-effective-scale, 1));opacity:.5">Sector Breakdown</span>
-            </div>
-          </div>`;
-      }
-    }
-
     return `
       <div class="popup-header waterway">
         <span class="popup-title">${escapeHtml(waterway.name)}</span>
         <span class="popup-badge elevated">${t('popups.strategic')}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         ${waterway.description ? `<p class="popup-description">${escapeHtml(waterway.description)}</p>` : ''}
@@ -1582,9 +1033,6 @@ export class MapPopup {
             <span class="stat-value">${waterway.lat.toFixed(2)}°, ${waterway.lon.toFixed(2)}°</span>
           </div>
         </div>
-        ${sectorSection}
-        ${ringSection}
-        ${chartSection}
       </div>
     `;
   }
@@ -1603,7 +1051,7 @@ export class MapPopup {
       <div class="popup-header ais">
         <span class="popup-title">${escapeHtml(event.name.toUpperCase())}</span>
         <span class="popup-badge ${severityClass}">${severityLabel}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${typeLabel}</div>
@@ -1631,20 +1079,18 @@ export class MapPopup {
   }
 
   private renderProtestPopup(event: SocialUnrestEvent): string {
-    const mediaSignal = event.sourceType === 'gdelt';
     const severityClass = escapeHtml(event.severity);
     const severityLabel = escapeHtml(event.severity.toUpperCase());
-    const eventTypeLabel = mediaSignal ? t('popups.protest.mediaSignal') : escapeHtml(event.eventType.replace('_', ' ').toUpperCase());
+    const eventTypeLabel = escapeHtml(event.eventType.replace('_', ' ').toUpperCase());
     const icon = event.eventType === 'riot' ? '🔥' : event.eventType === 'strike' ? '✊' : '📢';
     const sourceLabel = event.sourceType === 'acled' ? t('popups.protest.acledVerified') : t('popups.protest.gdelt');
-    const validatedBadge = !mediaSignal && event.validated ? `<span class="popup-badge verified">${t('popups.verified')}</span>` : '';
+    const validatedBadge = event.validated ? `<span class="popup-badge verified">${t('popups.verified')}</span>` : '';
     const fatalitiesSection = event.fatalities
       ? `<div class="popup-stat"><span class="stat-label">${t('popups.fatalities')}</span><span class="stat-value alert">${event.fatalities}</span></div>`
       : '';
     const actorsSection = event.actors?.length
       ? `<div class="popup-stat"><span class="stat-label">${t('popups.actors')}</span><span class="stat-value">${event.actors.map(a => escapeHtml(a)).join(', ')}</span></div>`
       : '';
-    const sourceLinks = renderPopupSourceLinks(event.sourceUrls, { label: t(mediaSignal ? 'popups.protest.relatedArticle' : 'popups.source') });
     const tagsSection = event.tags?.length
       ? `<div class="popup-tags">${event.tags.map(t => `<span class="popup-tag">${escapeHtml(t)}</span>`).join('')}</div>`
       : '';
@@ -1656,9 +1102,9 @@ export class MapPopup {
       <div class="popup-header protest ${severityClass}">
         <span class="popup-icon">${icon}</span>
         <span class="popup-title">${eventTypeLabel}</span>
-        ${mediaSignal ? '' : `<span class="popup-badge ${severityClass}">${severityLabel}</span>`}
+        <span class="popup-badge ${severityClass}">${severityLabel}</span>
         ${validatedBadge}
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${event.city ? `${escapeHtml(event.city)}, ` : ''}${escapeHtml(event.country)}</div>
@@ -1675,9 +1121,6 @@ export class MapPopup {
           ${actorsSection}
         </div>
         ${event.title ? `<p class="popup-description">${escapeHtml(event.title)}</p>` : ''}
-        ${mediaSignal ? `<p class="popup-description">${t('popups.protest.mediaSignalDetail')}</p>` : ''}
-        ${mediaSignal && sourceLinks ? `<div class="popup-source-label">${t('popups.protest.relatedArticle')}</div>` : ''}
-        ${sourceLinks}
         ${tagsSection}
         ${relatedHotspots}
       </div>
@@ -1700,29 +1143,24 @@ export class MapPopup {
     });
 
     const listItems = sortedItems.slice(0, 10).map(event => {
-      const mediaSignal = event.sourceType === 'gdelt';
       const icon = event.eventType === 'riot' ? '🔥' : event.eventType === 'strike' ? '✊' : '📢';
       const sevClass = event.severity;
       const dateStr = event.time.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       const city = event.city ? escapeHtml(event.city) : '';
       const title = event.title ? `: ${escapeHtml(event.title.slice(0, 40))}${event.title.length > 40 ? '...' : ''}` : '';
-      const sourceUrl = event.sourceUrls?.find(url => sanitizeUrl(url));
-      const sourceLink = sourceUrl
-        ? ` <a class="popup-link cluster-source-link" href="${sanitizeUrl(sourceUrl)}" target="_blank" rel="noopener noreferrer nofollow">${t(mediaSignal ? 'popups.protest.relatedArticle' : 'popups.source')} →</a>`
-        : '';
-      return `<li class="cluster-item ${sevClass}">${icon} ${dateStr}${city ? ` • ${city}` : ''}${title}${mediaSignal ? ` • ${t('popups.protest.mediaSignal')}` : ''}${sourceLink}</li>`;
+      return `<li class="cluster-item ${sevClass}">${icon} ${dateStr}${city ? ` • ${city}` : ''}${title}</li>`;
     }).join('');
 
     const renderedCount = Math.min(10, data.items.length);
     const remainingCount = Math.max(0, totalCount - renderedCount);
-    const moreCount = remainingCount > 0 ? `<li class="cluster-more">+${remainingCount} ${t('popups.protest.records')}</li>` : '';
+    const moreCount = remainingCount > 0 ? `<li class="cluster-more">+${remainingCount} ${t('popups.moreEvents')}</li>` : '';
     const headerClass = highSeverity > 0 ? 'high' : riots > 0 ? 'medium' : 'low';
 
     return `
       <div class="popup-header protest ${headerClass} cluster">
         <span class="popup-title">📢 ${escapeHtml(data.country)}</span>
-        <span class="popup-badge">${totalCount} ${t('popups.protest.records').toUpperCase()}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <span class="popup-badge">${totalCount} ${t('popups.events').toUpperCase()}</span>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body cluster-popup">
         <div class="cluster-summary">
@@ -1739,11 +1177,7 @@ export class MapPopup {
 
   private renderFlightPopup(delay: AirportDelayAlert): string {
     const severityClass = escapeHtml(delay.severity);
-    // #3707: render 'unknown' as a neutral "No data" badge so users don't
-    // read it as "healthy / normal". All other severities keep raw label.
-    const severityLabel = delay.severity === 'unknown'
-      ? 'NO DATA'
-      : escapeHtml(delay.severity.toUpperCase());
+    const severityLabel = escapeHtml(delay.severity.toUpperCase());
     const delayTypeLabels: Record<string, string> = {
       'ground_stop': t('popups.flight.groundStop'),
       'ground_delay': t('popups.flight.groundDelay'),
@@ -1752,23 +1186,12 @@ export class MapPopup {
       'general': t('popups.flight.delaysReported'),
       'closure': t('popups.flight.closure'),
     };
-    // #3707: when severity is 'unknown' we have no delay-type signal either.
-    const delayTypeLabel = delay.severity === 'unknown'
-      ? 'Coverage unavailable'
-      : (delayTypeLabels[delay.delayType] || t('popups.flight.delays'));
-    const icon = delay.severity === 'unknown'
-      ? '❔'
-      : delay.delayType === 'closure' ? '🚫'
-      : delay.delayType === 'ground_stop' ? '🛑'
-      : delay.severity === 'severe' ? '✈️'
-      : '🛫';
+    const delayTypeLabel = delayTypeLabels[delay.delayType] || t('popups.flight.delays');
+    const icon = delay.delayType === 'closure' ? '🚫' : delay.delayType === 'ground_stop' ? '🛑' : delay.severity === 'severe' ? '✈️' : '🛫';
     const sourceLabels: Record<string, string> = {
       'faa': t('popups.flight.sources.faa'),
       'eurocontrol': t('popups.flight.sources.eurocontrol'),
       'computed': t('popups.flight.sources.computed'),
-      'aviationstack': t('popups.flight.sources.aviationstack'),
-      'notam': t('popups.flight.sources.notam'),
-      'unspecified': '—',
     };
     const sourceLabel = sourceLabels[delay.source] || escapeHtml(delay.source);
     const regionLabels: Record<string, string> = {
@@ -1795,7 +1218,7 @@ export class MapPopup {
         <span class="popup-icon">${icon}</span>
         <span class="popup-title">${escapeHtml(delay.iata)} - ${delayTypeLabel}</span>
         <span class="popup-badge ${severityClass}">${severityLabel}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(delay.name)}</div>
@@ -1821,84 +1244,26 @@ export class MapPopup {
     `;
   }
 
-  private renderAircraftPopup(pos: PositionSample): string {
-    const callsign = escapeHtml(pos.callsign || pos.icao24);
-    const onGroundBadge = pos.onGround ? 'low' : 'elevated';
-    const statusLabel = pos.onGround ? t('popups.aircraft.ground') : t('popups.aircraft.airborne');
-    const altDisplay = pos.altitudeFt > 0 ? `FL${Math.round(pos.altitudeFt / 100)} (${pos.altitudeFt.toLocaleString()} ft)` : t('popups.aircraft.ground');
-
-    return `
-      <div class="popup-header aircraft">
-        <span class="popup-icon">&#9992;</span>
-        <span class="popup-title">${callsign}</span>
-        <span class="popup-badge ${onGroundBadge}">${statusLabel}</span>
-        <button class="popup-close" aria-label="Close">×</button>
-      </div>
-      <div class="popup-body">
-        <div class="popup-subtitle">ICAO24: ${escapeHtml(pos.icao24)}</div>
-        <div class="popup-stats">
-          <div class="popup-stat">
-            <span class="stat-label">${t('popups.aircraft.altitude')}</span>
-            <span class="stat-value">${altDisplay}</span>
-          </div>
-          <div class="popup-stat">
-            <span class="stat-label">${t('popups.aircraft.speed')}</span>
-            <span class="stat-value">${pos.groundSpeedKts} kts</span>
-          </div>
-          <div class="popup-stat">
-            <span class="stat-label">${t('popups.aircraft.heading')}</span>
-            <span class="stat-value">${Math.round(pos.trackDeg)}&deg;</span>
-          </div>
-          <div class="popup-stat">
-            <span class="stat-label">${t('popups.aircraft.position')}</span>
-            <span class="stat-value">${pos.lat.toFixed(4)}&deg;, ${pos.lon.toFixed(4)}&deg;</span>
-          </div>
-          <div class="popup-stat">
-            <span class="stat-label">${t('popups.source')}</span>
-            <span class="stat-value">${formatPositionSource(pos.source)}</span>
-          </div>
-          <div class="popup-stat">
-            <span class="stat-label">${t('popups.updated')}</span>
-            <span class="stat-value">${pos.observedAt.toLocaleTimeString()}</span>
-          </div>
-        </div>
-${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"><div class="wingbits-live-loading" style="font-size:calc(11px * var(--wm-panel-effective-scale, 1));opacity:0.5;padding:4px 0">Loading Wingbits live data…</div></div>' : ''}
-      </div>
-    `;
-  }
-
   private renderAPTPopup(apt: APTGroup): string {
-    const tacticsHtml = apt.tactics?.length
-      ? `<div class="popup-tags">${apt.tactics.map(tactic => `<span class="popup-tag">${escapeHtml(tactic)}</span>`).join('')}</div>`
-      : '';
-    const sectorsHtml = apt.targetSectors?.length
-      ? `<div class="popup-subtitle" style="margin-top:6px">Targets: ${escapeHtml(apt.targetSectors.join(', '))}</div>`
-      : '';
-    const mitreHtml = apt.mitreId && apt.mitreUrl
-      ? `<div class="popup-stat"><span class="stat-label">MITRE</span><span class="stat-value"><a class="popup-link" href="${escapeHtml(apt.mitreUrl)}" target="_blank" rel="noopener">${escapeHtml(apt.mitreId)} ↗</a></span></div>`
-      : '';
-    const activeBadge = apt.active === false
-      ? `<span class="popup-badge low">Inactive</span>`
-      : `<span class="popup-badge high">${t('popups.threat')}</span>`;
-
     return `
       <div class="popup-header apt">
         <span class="popup-title">${escapeHtml(apt.name)}</span>
-        ${activeBadge}
-        <button class="popup-close" aria-label="Close">×</button>
+        <span class="popup-badge high">${t('popups.threat')}</span>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
-        <div class="popup-subtitle">${escapeHtml(apt.aka)}</div>
+        <div class="popup-subtitle">${t('popups.aka')}: ${escapeHtml(apt.aka)}</div>
         <div class="popup-stats">
           <div class="popup-stat">
             <span class="stat-label">${t('popups.sponsor')}</span>
             <span class="stat-value">${escapeHtml(apt.sponsor)}</span>
           </div>
-          ${mitreHtml}
+          <div class="popup-stat">
+            <span class="stat-label">${t('popups.origin')}</span>
+            <span class="stat-value">${apt.lat.toFixed(1)}°, ${apt.lon.toFixed(1)}°</span>
+          </div>
         </div>
-        ${apt.description ? `<p class="popup-description">${escapeHtml(apt.description)}</p>` : ''}
-        ${tacticsHtml}
-        ${sectorsHtml}
+        <p class="popup-description">${t('popups.apt.description')}</p>
       </div>
     `;
   }
@@ -1921,7 +1286,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header apt ${severityClass}">
         <span class="popup-title">${t('popups.cyberThreat.title')}</span>
         <span class="popup-badge ${severityClass}">${escapeHtml(threat.severity.toUpperCase())}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(typeLabel)}</div>
@@ -1961,8 +1326,6 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       'enrichment': t('popups.nuclear.types.enrichment'),
       'weapons': t('popups.nuclear.types.weapons'),
       'research': t('popups.nuclear.types.research'),
-      'reprocessing': t('popups.nuclear.types.reprocessing'),
-      'test-site': t('popups.nuclear.types.testSite'),
     };
     const statusColors: Record<string, string> = {
       'active': 'elevated',
@@ -1974,7 +1337,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header nuclear">
         <span class="popup-title">${escapeHtml(facility.name.toUpperCase())}</span>
         <span class="popup-badge ${statusColors[facility.status] || 'low'}">${escapeHtml(facility.status.toUpperCase())}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-stats">
@@ -1992,34 +1355,6 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
           </div>
         </div>
         <p class="popup-description">${t('popups.nuclear.description')}</p>
-        ${(facility.operationalSince || facility.treaties?.length || facility.iaeaStatus || facility.keyEvents?.length) ? `
-        <div class="popup-section">
-          <details>
-            <summary>📜 HISTORICAL PROFILE</summary>
-            <div class="popup-section-content">
-              ${facility.operationalSince ? `
-              <div class="popup-stat">
-                <span class="stat-label">OPERATIONAL SINCE</span>
-                <span class="stat-value">${escapeHtml(facility.operationalSince)}</span>
-              </div>` : ''}
-              ${facility.treaties?.length ? `
-              <div class="popup-stat">
-                <span class="stat-label">TREATIES</span>
-                <span class="stat-value">${facility.treaties.map(escapeHtml).join(', ')}</span>
-              </div>` : ''}
-              ${facility.iaeaStatus ? `
-              <div class="popup-stat">
-                <span class="stat-label">IAEA STATUS</span>
-                <span class="stat-value">${escapeHtml(facility.iaeaStatus)}</span>
-              </div>` : ''}
-              ${facility.keyEvents?.length ? `
-              <div class="popup-stat">
-                <span class="stat-label">KEY EVENTS</span>
-                <span class="stat-value">${facility.keyEvents.map(escapeHtml).join('<br>')}</span>
-              </div>` : ''}
-            </div>
-          </details>
-        </div>` : ''}
       </div>
     `;
   }
@@ -2041,15 +1376,15 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       ? marketStatus === 'open'
         ? t('popups.open')
         : marketStatus === 'closed'
-          ? t('popups.economic.closed')
-          : t('popups.unknown')
+        ? t('popups.economic.closed')
+        : t('popups.unknown')
       : '';
 
     return `
       <div class="popup-header economic ${center.type}">
         <span class="popup-title">${typeIcons[center.type] || ''} ${escapeHtml(center.name.toUpperCase())}</span>
         <span class="popup-badge ${marketStatus === 'open' ? 'elevated' : 'low'}">${escapeHtml(marketStatusLabel || typeLabels[center.type] || '')}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         ${center.description ? `<p class="popup-description">${escapeHtml(center.description)}</p>` : ''}
@@ -2083,7 +1418,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header irradiator">
         <span class="popup-title">☢ ${escapeHtml(irradiator.city.toUpperCase())}</span>
         <span class="popup-badge elevated">${t('popups.gamma')}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${t('popups.irradiator.subtitle')}</div>
@@ -2128,7 +1463,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header pipeline ${pipeline.type}">
         <span class="popup-title">${typeIcon} ${escapeHtml(pipeline.name.toUpperCase())}</span>
         <span class="popup-badge ${typeColors[pipeline.type] || 'low'}">${escapeHtml(pipeline.type.toUpperCase())}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${typeLabels[pipeline.type] || t('popups.pipeline.title')}</div>
@@ -2187,12 +1522,9 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
     } else if (advisory) {
       statusLabel = advisory.severity === 'fault' ? t('popups.cable.fault') : t('popups.cable.degraded');
       statusBadge = advisory.severity === 'fault' ? 'high' : 'elevated';
-    } else if (healthRecord?.status === 'ok') {
+    } else {
       statusLabel = t('popups.cable.active');
       statusBadge = 'low';
-    } else {
-      statusLabel = t('popups.unknown');
-      statusBadge = 'info';
     }
     const repairEta = repairShip?.eta || advisory?.repairEta;
     const cableName = escapeHtml(cable.name.toUpperCase());
@@ -2208,7 +1540,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header cable">
         <span class="popup-title">🌐 ${cableName}</span>
         <span class="popup-badge ${statusBadge}">${cable.major ? t('popups.cable.major') : t('popups.cable.cable')}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${t('popups.cable.subtitle')}</div>
@@ -2279,7 +1611,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header cable">
         <span class="popup-title">🚨 ${cableName}</span>
         <span class="popup-badge ${advisory.severity === 'fault' ? 'high' : 'elevated'}">${statusLabel}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${advisoryTitle}</div>
@@ -2316,7 +1648,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header cable">
         <span class="popup-title">🚢 ${shipName}</span>
         <span class="popup-badge elevated">${t('popups.repairShip.badge')}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${cableLabel}</div>
@@ -2374,7 +1706,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header outage ${severityClass}">
         <span class="popup-title">📡 ${escapeHtml(outage.country.toUpperCase())}</span>
         <span class="popup-badge ${severityColors[outage.severity] || 'low'}">${severityLabels[outage.severity] || t('popups.outage.levels.disruption')}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(outage.title)}</div>
@@ -2400,7 +1732,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
             </div>
           </div>
         ` : ''}
-        ${outage.description ? `<p class="popup-description">${escapeHtml(outage.description.slice(0, 250))}${outage.description.length > 250 ? '...' : ''}</p>` : ''}
+        <p class="popup-description">${escapeHtml(outage.description.slice(0, 250))}${outage.description.length > 250 ? '...' : ''}</p>
         <a href="${sanitizeUrl(outage.link)}" target="_blank" class="popup-link">${t('popups.outage.readReport')} →</a>
       </div>
     `;
@@ -2428,7 +1760,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header datacenter ${dc.status}">
         <span class="popup-title">🖥️ ${escapeHtml(dc.name)}</span>
         <span class="popup-badge ${statusColors[dc.status] || 'normal'}">${statusLabels[dc.status] || t('popups.datacenter.status.unknown')}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(dc.owner)} • ${escapeHtml(dc.country)}</div>
@@ -2487,7 +1819,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header datacenter cluster">
         <span class="popup-title">🖥️ ${t('popups.datacenter.cluster.title', { count: String(totalCount) })}</span>
         <span class="popup-badge elevated">${escapeHtml(data.region)}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(data.country)}</div>
@@ -2532,7 +1864,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header startup-hub ${hub.tier}">
         <span class="popup-title">${tierIcons[hub.tier] || '🚀'} ${escapeHtml(hub.name)}</span>
         <span class="popup-badge ${hub.tier}">${tierLabels[hub.tier] || t('popups.startupHub.tiers.hub')}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(hub.city)}, ${escapeHtml(hub.country)}</div>
@@ -2556,7 +1888,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header cloud-region ${region.provider}">
         <span class="popup-title">${providerIcons[region.provider] || '☁️'} ${escapeHtml(region.name)}</span>
         <span class="popup-badge ${region.provider}">${escapeHtml(region.provider.toUpperCase())}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(region.city)}, ${escapeHtml(region.country)}</div>
@@ -2587,7 +1919,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header tech-hq ${hq.type}">
         <span class="popup-title">${typeIcons[hq.type] || '🏢'} ${escapeHtml(hq.company)}</span>
         <span class="popup-badge ${hq.type}">${typeLabels[hq.type] || t('popups.techHQ.types.tech')}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(hq.city)}, ${escapeHtml(hq.country)}</div>
@@ -2620,7 +1952,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header accelerator ${acc.type}">
         <span class="popup-title">${typeIcons[acc.type] || '🎯'} ${escapeHtml(acc.name)}</span>
         <span class="popup-badge ${acc.type}">${typeLabels[acc.type] || t('popups.accelerator.types.accelerator')}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(acc.city)}, ${escapeHtml(acc.country)}</div>
@@ -2654,14 +1986,14 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
     const daysLabel = event.daysUntil === 0
       ? t('popups.techEvent.days.today')
       : event.daysUntil === 1
-        ? t('popups.techEvent.days.tomorrow')
-        : t('popups.techEvent.days.inDays', { count: String(event.daysUntil) });
+      ? t('popups.techEvent.days.tomorrow')
+      : t('popups.techEvent.days.inDays', { count: String(event.daysUntil) });
 
     return `
       <div class="popup-header tech-event ${urgencyClass}">
         <span class="popup-title">📅 ${escapeHtml(event.title)}</span>
         <span class="popup-badge ${urgencyClass}">${daysLabel}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">📍 ${escapeHtml(event.location)}, ${escapeHtml(event.country)}</div>
@@ -2705,7 +2037,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header tech-hq cluster">
         <span class="popup-title">🏙️ ${escapeHtml(data.city)}</span>
         <span class="popup-badge">${t('popups.techHQCluster.companiesCount', { count: String(totalCount) })}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body cluster-popup">
         <div class="popup-subtitle">📍 ${escapeHtml(data.city)}, ${escapeHtml(data.country)}</div>
@@ -2736,7 +2068,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header tech-event cluster">
         <span class="popup-title">📅 ${escapeHtml(data.location)}</span>
         <span class="popup-badge">${t('popups.techEventCluster.eventsCount', { count: String(totalCount) })}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body cluster-popup">
         <div class="popup-subtitle">📍 ${escapeHtml(data.location)}, ${escapeHtml(data.country)}</div>
@@ -2817,30 +2149,15 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
     const aircraftType = escapeHtml(typeLabels[flight.aircraftType] || flight.aircraftType);
     const squawk = flight.squawk ? escapeHtml(flight.squawk) : '';
     const note = flight.note ? escapeHtml(flight.note) : '';
-    const registration = flight.registration ? escapeHtml(flight.registration) : '';
-    const aircraftModel = flight.aircraftModel ? escapeHtml(flight.aircraftModel) : '';
-
-    const climbRateStat = flight.verticalRate !== undefined && flight.verticalRate !== 0 ? `
-          <div class="popup-stat">
-            <span class="stat-label">${t('popups.militaryFlight.climbRate')}</span>
-            <span class="stat-value">${flight.verticalRate > 0 ? '+' : ''}${Math.round(flight.verticalRate)} fpm</span>
-          </div>` : '';
-
-    const enrichedStats = flight.enriched ? [
-      flight.enriched.manufacturer ? `<div class="popup-stat"><span class="stat-label">${t('popups.militaryFlight.manufacturer')}</span><span class="stat-value">${escapeHtml(flight.enriched.manufacturer)}</span></div>` : '',
-      flight.enriched.owner ? `<div class="popup-stat"><span class="stat-label">${t('popups.militaryFlight.owner')}</span><span class="stat-value">${escapeHtml(flight.enriched.owner)}</span></div>` : '',
-      flight.enriched.builtYear ? `<div class="popup-stat"><span class="stat-label">${t('popups.militaryFlight.builtYear')}</span><span class="stat-value">${escapeHtml(flight.enriched.builtYear)}</span></div>` : '',
-    ].join('') : '';
 
     return `
       <div class="popup-header military-flight ${flight.operator}">
         <span class="popup-title">${callsign}</span>
         <span class="popup-badge ${confidenceColors[flight.confidence] || 'low'}">${aircraftTypeBadge}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${operatorLabel}</div>
-        ${registration || aircraftModel ? `<div class="popup-subtitle" style="opacity:0.7;font-size:calc(11px * var(--wm-panel-effective-scale, 1));margin-top:-4px">${[registration, aircraftModel].filter(Boolean).join(' · ')}</div>` : ''}
         <div class="popup-stats">
           <div class="popup-stat">
             <span class="stat-label">${t('popups.militaryFlight.altitude')}</span>
@@ -2854,7 +2171,6 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
             <span class="stat-label">${t('popups.militaryFlight.heading')}</span>
             <span class="stat-value">${Math.round(flight.heading)}°</span>
           </div>
-          ${climbRateStat}
           <div class="popup-stat">
             <span class="stat-label">${t('popups.militaryFlight.hexCode')}</span>
             <span class="stat-value">${hexCode}</span>
@@ -2869,56 +2185,11 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
             <span class="stat-value">${squawk}</span>
           </div>
           ` : ''}
-          ${enrichedStats}
         </div>
         ${flight.note ? `<p class="popup-description">${note}</p>` : ''}
-${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"><div class="wingbits-live-loading" style="font-size:calc(11px * var(--wm-panel-effective-scale, 1));opacity:0.5;padding:4px 0">Loading Wingbits live data…</div></div>' : ''}
-        <div class="popup-attribution">${formatMilitaryFlightSource(flight.source)}</div>
+        <div class="popup-attribution">${t('popups.militaryFlight.attribution')}</div>
       </div>
     `;
-  }
-
-  private getFlagEmoji(countryCode: string): string {
-    if (!countryCode || countryCode.length !== 2) return '';
-    const codePoints = countryCode
-      .toUpperCase()
-      .split('')
-      .map(char => 127397 + char.charCodeAt(0));
-    try {
-      return String.fromCodePoint(...codePoints);
-    } catch {
-      return '';
-    }
-  }
-
-  private static readonly OPERATOR_COUNTRY_MAP: Record<string, string> = {
-    usn: 'US', usaf: 'US', usmc: 'US', usa: 'US', uscg: 'US',
-    rn: 'GB', raf: 'GB',
-    plan: 'CN', plaaf: 'CN',
-    vks: 'RU', ruf: 'RU',
-    faf: 'FR', fn: 'FR',
-    gaf: 'DE',
-    iaf: 'IL',
-    jmsdf: 'JP',
-    rokn: 'KR',
-  };
-
-  private getOperatorCountryCode(vessel: { operator: string; operatorCountry?: string }): string {
-    return (vessel.operatorCountry ? nameToCountryCode(vessel.operatorCountry) : null)
-      || MapPopup.OPERATOR_COUNTRY_MAP[vessel.operator]
-      || '';
-  }
-
-  private formatCoord(lat: number, lon: number): string {
-    const ns = lat >= 0 ? 'N' : 'S';
-    const ew = lon >= 0 ? 'E' : 'W';
-    return `${Math.abs(lat).toFixed(3)}°${ns}, ${Math.abs(lon).toFixed(3)}°${ew}`;
-  }
-
-  private renderClusterVesselItem(v: MilitaryVessel): string {
-    const code = this.getOperatorCountryCode(v);
-    const flag = code ? this.getFlagEmoji(code) : '';
-    return `<div class="cluster-vessel-item">${flag ? `<span class="flag-icon-small">${flag}</span> ` : ''}${escapeHtml(v.name)} - ${escapeHtml(vesselTypeLabel(v))}</div>`;
   }
 
   private renderMilitaryVesselPopup(vessel: MilitaryVessel): string {
@@ -2951,95 +2222,53 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       ? `<span class="popup-badge high">${t('popups.militaryVessel.aisDark')}</span>`
       : '';
 
-    const dataSourceBadge = vessel.usniSource
-      ? `<span class="popup-badge" style="background:rgba(255,170,50,0.15);border:1px solid rgba(255,170,50,0.5);color:#ffaa44;">${t('popups.militaryVessel.estPosition')}</span>`
-      : `<span class="popup-badge" style="background:rgba(68,255,136,0.15);border:1px solid rgba(68,255,136,0.5);color:#44ff88;">${t('popups.militaryVessel.aisLive')}</span>`;
-
     // USNI deployment status badge
     const deploymentBadge = vessel.usniDeploymentStatus && vessel.usniDeploymentStatus !== 'unknown'
       ? `<span class="popup-badge ${vessel.usniDeploymentStatus === 'deployed' ? 'high' : vessel.usniDeploymentStatus === 'underway' ? 'elevated' : 'low'}">${vessel.usniDeploymentStatus.toUpperCase().replace('-', ' ')}</span>`
       : '';
 
     // Show AIS ship type when military type is unknown
-    const displayType = vesselTypeLabel(vessel, typeLabels);
-    const badgeType = vesselTypeLabel(vessel).toUpperCase();
+    const displayType = vessel.vesselType === 'unknown' && vessel.aisShipType
+      ? vessel.aisShipType
+      : (typeLabels[vessel.vesselType] || vessel.vesselType);
+    const badgeType = vessel.vesselType === 'unknown' && vessel.aisShipType
+      ? vessel.aisShipType.toUpperCase()
+      : vessel.vesselType.toUpperCase();
     const vesselName = escapeHtml(vessel.name || `${t('popups.militaryVessel.vessel')} ${vessel.mmsi}`);
     const vesselOperator = escapeHtml(operatorLabels[vessel.operator] || vessel.operatorCountry || t('popups.unknown'));
-    const vesselTypeText = escapeHtml(displayType);
+    const vesselTypeLabel = escapeHtml(displayType);
     const vesselBadgeType = escapeHtml(badgeType);
     const vesselMmsi = escapeHtml(vessel.mmsi || '—');
     const vesselHull = vessel.hullNumber ? escapeHtml(vessel.hullNumber) : '';
     const vesselNote = vessel.note ? escapeHtml(vessel.note) : '';
 
-    const countryCode = this.getOperatorCountryCode(vessel);
-    const flagEmoji = countryCode ? this.getFlagEmoji(countryCode) : '';
-
-    const lastSeenStr = vessel.lastAisUpdate
-      ? `${new Date(vessel.lastAisUpdate).toLocaleString()}${vessel.aisGapMinutes ? ` (${vessel.aisGapMinutes}m ago)` : ''}`
-      : t('popups.unknown');
-
-    const recentTrack = vessel.track && vessel.track.length > 0
-      ? `<div class="popup-section">
-          <details>
-            <summary>${t('popups.militaryVessel.recentTracking')}</summary>
-            <div class="popup-section-content">
-              <div class="vessel-history-list">
-                ${vessel.track.slice(-5).reverse().map((tp, i) => `
-                  <div class="vessel-history-item">
-                    <span class="history-point">${this.formatCoord(tp[0], tp[1])}</span>
-                    ${i === 0 ? `<span class="history-tag">${t('popups.militaryVessel.lastReport')}</span>` : ''}
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          </details>
-        </div>`
-      : '';
-
-    const usniIntel = (vessel.usniActivityDescription || vessel.usniRegion || vessel.usniStrikeGroup) ? `
-      <div class="popup-section usni-intel-section">
-        <div class="section-header usni">
-          <span class="section-label">${t('popups.militaryVessel.usniIntel')}</span>
-        </div>
-        <div class="usni-intel-content">
-          ${vessel.usniStrikeGroup ? `<div class="usni-field"><strong>${t('popups.militaryVessel.strikeGroup')}:</strong> ${escapeHtml(vessel.usniStrikeGroup)}</div>` : ''}
-          ${vessel.usniRegion ? `<div class="usni-field"><strong>${t('popups.militaryVessel.region')}:</strong> ${escapeHtml(vessel.usniRegion)}</div>` : ''}
-          ${vessel.usniActivityDescription ? `<p class="usni-description">${escapeHtml(vessel.usniActivityDescription)}</p>` : ''}
-          ${vessel.usniArticleUrl && sanitizeUrl(vessel.usniArticleUrl) ? `
-            <div class="usni-source-row">
-              <a href="${sanitizeUrl(vessel.usniArticleUrl)}" target="_blank" rel="noopener noreferrer" class="usni-link">
-                ${t('popups.militaryVessel.usniSource')} ${vessel.usniArticleDate ? `(${new Date(vessel.usniArticleDate).toLocaleDateString()})` : ''}
-              </a>
-            </div>
-          ` : ''}
-        </div>
-      </div>
-    ` : '';
-
     return `
       <div class="popup-header military-vessel ${vessel.operator}">
-        <div class="popup-title-row">
-          <span class="popup-title">${vesselName}</span>
-          ${vessel.hullNumber ? `<span class="hull-badge">${vesselHull}</span>` : ''}
-        </div>
-        <div class="popup-badges">
-          ${darkWarning}
-          ${dataSourceBadge}
-          ${deploymentBadge}
-          <span class="popup-badge elevated">${vesselBadgeType}</span>
-        </div>
-        <button class="popup-close" aria-label="Close">×</button>
+        <span class="popup-title">${vesselName}</span>
+        ${darkWarning}
+        ${deploymentBadge}
+        <span class="popup-badge elevated">${vesselBadgeType}</span>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
-        <div class="popup-subtitle">
-          ${flagEmoji ? `<span class="flag-icon">${flagEmoji}</span>` : ''}
-          <span class="operator-label">${vesselOperator}</span>
-        </div>
+        <div class="popup-subtitle">${vesselOperator}</div>
         <div class="popup-stats">
           <div class="popup-stat">
             <span class="stat-label">${t('popups.type')}</span>
-            <span class="stat-value">${vesselTypeText}</span>
+            <span class="stat-value">${vesselTypeLabel}</span>
           </div>
+          ${vessel.usniRegion ? `
+          <div class="popup-stat">
+            <span class="stat-label">${t('popups.militaryVessel.region')}</span>
+            <span class="stat-value">${escapeHtml(vessel.usniRegion)}</span>
+          </div>
+          ` : ''}
+          ${vessel.usniStrikeGroup ? `
+          <div class="popup-stat">
+            <span class="stat-label">${t('popups.militaryVessel.strikeGroup')}</span>
+            <span class="stat-value">${escapeHtml(vessel.usniStrikeGroup)}</span>
+          </div>
+          ` : ''}
           <div class="popup-stat">
             <span class="stat-label">${t('popups.militaryVessel.speed')}</span>
             <span class="stat-value">${vessel.speed} kts</span>
@@ -3054,31 +2283,18 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
             <span class="stat-value">${vesselMmsi}</span>
           </div>
           ` : ''}
-          ${vessel.nearChokepoint ? `
-          <div class="popup-stat warning">
-            <span class="stat-label">${t('popups.militaryVessel.nearChokepoint')}</span>
-            <span class="stat-value">${escapeHtml(vessel.nearChokepoint)}</span>
-          </div>
-          ` : ''}
-          ${vessel.nearBase ? `
+          ${vessel.hullNumber ? `
           <div class="popup-stat">
-            <span class="stat-label">${t('popups.militaryVessel.nearBase')}</span>
-            <span class="stat-value">${escapeHtml(vessel.nearBase)}</span>
+            <span class="stat-label">${t('popups.militaryVessel.hull')}</span>
+            <span class="stat-value">${vesselHull}</span>
           </div>
           ` : ''}
-          <div class="popup-stat full-width">
-            <span class="stat-label">${t('popups.militaryVessel.lastSeen')}</span>
-            <span class="stat-value">${lastSeenStr}</span>
-          </div>
         </div>
-
-        ${usniIntel}
-        ${recentTrack}
-
+        ${vessel.usniActivityDescription ? `<p class="popup-description"><strong>${t('popups.militaryVessel.usniIntel')}:</strong> ${escapeHtml(vessel.usniActivityDescription)}</p>` : ''}
         ${vessel.note ? `<p class="popup-description">${vesselNote}</p>` : ''}
         ${vessel.isDark ? `<p class="popup-description alert">${t('popups.militaryVessel.darkDescription')}</p>` : ''}
         ${vessel.usniSource ? `<p class="popup-description" style="opacity:0.7;font-size:0.85em">${t('popups.militaryVessel.approximatePosition')}</p>` : ''}
-        ${vessel.usniArticleUrl && !usniIntel && sanitizeUrl(vessel.usniArticleUrl) ? `<div class="popup-attribution"><a href="${sanitizeUrl(vessel.usniArticleUrl)}" target="_blank" rel="noopener noreferrer">${t('popups.militaryVessel.usniSource')}${vessel.usniArticleDate ? ` (${new Date(vessel.usniArticleDate).toLocaleDateString()})` : ''}</a></div>` : ''}
+        ${vessel.usniArticleUrl ? `<div class="popup-attribution"><a href="${escapeHtml(vessel.usniArticleUrl)}" target="_blank" rel="noopener">${t('popups.militaryVessel.usniSource')}${vessel.usniArticleDate ? ` (${new Date(vessel.usniArticleDate).toLocaleDateString()})` : ''}</a></div>` : ''}
       </div>
     `;
   }
@@ -3113,7 +2329,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header military-cluster">
         <span class="popup-title">${clusterName}</span>
         <span class="popup-badge ${activityColors[activityType] || 'low'}">${t('popups.militaryCluster.aircraftCount', { count: String(cluster.flightCount) })}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${activityLabels[activityType] || t('popups.militaryCluster.flightActivity.unknown')}</div>
@@ -3164,39 +2380,22 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
     const clusterName = escapeHtml(cluster.name);
     const activityTypeLabel = escapeHtml(activityType.toUpperCase());
     const region = cluster.region ? escapeHtml(cluster.region) : '';
-
-    const opCounts: Record<string, number> = {};
-    cluster.vessels.forEach(v => { opCounts[v.operator] = (opCounts[v.operator] || 0) + 1; });
-    const dominantOp = Object.entries(opCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
-    const dominantCode = dominantOp ? (MapPopup.OPERATOR_COUNTRY_MAP[dominantOp] || '') : '';
-    const dominantFlag = dominantCode ? this.getFlagEmoji(dominantCode) : '';
-
-    const visibleVessels = cluster.vessels
+    const vesselSummary = cluster.vessels
       .slice(0, 5)
-      .map(v => this.renderClusterVesselItem(v))
+      .map(v => `<div class="cluster-vessel-item">${escapeHtml(v.name)} - ${escapeHtml(v.vesselType)}</div>`)
       .join('');
-    const hiddenVessels = cluster.vessels.length > 5
-      ? cluster.vessels
-          .slice(5)
-          .map(v => this.renderClusterVesselItem(v))
-          .join('')
+    const moreVessels = cluster.vesselCount > 5
+      ? `<div class="cluster-more">${t('popups.militaryCluster.moreVessels', { count: String(cluster.vesselCount - 5) })}</div>`
       : '';
-    const hiddenCount = cluster.vessels.length - 5;
-    const moreLabel = escapeHtml(t('popups.militaryCluster.moreVessels', { count: String(hiddenCount) }));
-    const lessLabel = escapeHtml(t('popups.militaryCluster.showLess'));
-    const vesselSummary = hiddenVessels
-      ? `${visibleVessels}<div class="cluster-vessels-hidden" style="display:none">${hiddenVessels}</div>`
-        + `<button type="button" class="cluster-toggle" data-more="${moreLabel}" data-less="${lessLabel}">${moreLabel}</button>`
-      : visibleVessels;
 
     return `
       <div class="popup-header military-cluster">
         <span class="popup-title">${clusterName}</span>
         <span class="popup-badge ${activityColors[activityType] || 'low'}">${t('popups.militaryCluster.vesselsCount', { count: String(cluster.vesselCount) })}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
-        <div class="popup-subtitle">${dominantFlag ? `<span class="flag-icon">${dominantFlag}</span> ` : ''}${activityLabels[activityType] || t('popups.militaryCluster.vesselActivity.unknown')}</div>
+        <div class="popup-subtitle">${activityLabels[activityType] || t('popups.militaryCluster.vesselActivity.unknown')}</div>
         <div class="popup-stats">
           <div class="popup-stat">
             <span class="stat-label">${t('popups.militaryCluster.vessels')}</span>
@@ -3217,15 +2416,11 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
           <span class="section-label">${t('popups.militaryCluster.trackedVessels')}</span>
           <div class="cluster-vessels">
             ${vesselSummary}
+            ${moreVessels}
           </div>
         </div>
       </div>
     `;
-  }
-
-  private sanitizeClassToken(value: string | undefined, fallback = 'unknown'): string {
-    const token = String(value || '').trim().replace(/[^A-Za-z0-9_-]/g, '').replace(/^[^A-Za-z_]/, '');
-    return token || fallback;
   }
 
   private renderNaturalEventPopup(event: NaturalEvent): string {
@@ -3246,15 +2441,14 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
     };
     const icon = getNaturalEventIcon(event.category);
     const severityClass = categoryColors[event.category] || 'low';
-    const categoryClass = this.sanitizeClassToken(event.category, 'manmade');
     const timeAgo = this.getTimeAgo(event.date);
 
     return `
-      <div class="popup-header nat-event ${categoryClass}">
+      <div class="popup-header nat-event ${event.category}">
         <span class="popup-icon">${icon}</span>
         <span class="popup-title">${escapeHtml(event.categoryTitle.toUpperCase())}</span>
         <span class="popup-badge ${severityClass}">${event.closed ? t('popups.naturalEvent.closed') : t('popups.naturalEvent.active')}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(event.title)}</div>
@@ -3280,74 +2474,9 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
           </div>
           ` : ''}
         </div>
-        ${event.stormName || event.windKt || event.agencyObservations?.length ? this.renderTcDetails(event) : ''}
-        ${event.description && !event.windKt ? `<p class="popup-description">${escapeHtml(event.description)}</p>` : ''}
+        ${event.description ? `<p class="popup-description">${escapeHtml(event.description)}</p>` : ''}
         ${event.sourceUrl ? `<a href="${sanitizeUrl(event.sourceUrl)}" target="_blank" class="popup-link">${t('popups.naturalEvent.viewOnSource', { source: escapeHtml(event.sourceName || t('popups.source')) })} →</a>` : ''}
         <div class="popup-attribution">${t('popups.naturalEvent.attribution')}</div>
-      </div>
-    `;
-  }
-
-  private renderTcDetails(event: NaturalEvent): string {
-    const TC_COLORS: Record<number, string> = {
-      0: '#5ebaff', 1: '#00faf4', 2: '#ffffcc', 3: '#ffe775', 4: '#ffc140', 5: '#ff6060',
-    };
-    const cat = event.stormCategory ?? 0;
-    const color = TC_COLORS[cat] || TC_COLORS[0];
-    const catLabel = event.classification || (cat > 0 ? `Category ${cat}` : t('popups.naturalEvent.tropicalSystem'));
-    const agencyObservations = event.agencyObservations ?? [];
-    const agencyObservationRows = agencyObservations.map((observation) => {
-      const wind = observation.windKt != null
-        ? `${observation.windKt} kt${observation.windAveragingPeriodMinutes ? ` (${observation.windAveragingPeriodMinutes}-minute mean)` : ''}`
-        : 'Wind not reported';
-      const name = observation.sourceName || observation.agency;
-      const agencyId = observation.agencyId ? ` · ${observation.agencyId}` : '';
-      const status = observation.status ? ` · ${observation.status}` : '';
-      return `<div class="popup-stat" style="grid-column: 1 / -1"><span class="stat-label">${escapeHtml(name)}${escapeHtml(agencyId)}</span><span class="stat-value">${escapeHtml(wind + status)}</span></div>`;
-    }).join('');
-
-    return `
-      <div class="popup-stats">
-        ${event.stormName ? `
-        <div class="popup-stat" style="grid-column: 1 / -1">
-          <span class="stat-label">${t('popups.naturalEvent.storm')}</span>
-          <span class="stat-value">${escapeHtml(event.stormName)}</span>
-        </div>` : ''}
-        <div class="popup-stat">
-          <span class="stat-label">${t('popups.naturalEvent.classification')}</span>
-          <span class="stat-value" style="color: ${color}">${escapeHtml(catLabel)}</span>
-        </div>
-        ${event.windKt != null ? `
-        <div class="popup-stat">
-          <span class="stat-label">${t('popups.naturalEvent.maxWind')}</span>
-          <span class="stat-value">${event.windKt} kt (${Math.round(event.windKt * 1.15078)} mph)</span>
-        </div>` : ''}
-        ${event.windAveragingPeriodMinutes != null ? `
-        <div class="popup-stat">
-          <span class="stat-label">Wind average</span>
-          <span class="stat-value">${event.windAveragingPeriodMinutes}-minute mean</span>
-        </div>` : ''}
-        ${event.canonicalId ? `
-        <div class="popup-stat">
-          <span class="stat-label">Canonical match</span>
-          <span class="stat-value">${escapeHtml(event.matchingConfidence || 'Agency identifier')}</span>
-        </div>` : ''}
-        ${event.pressureMb != null ? `
-        <div class="popup-stat">
-          <span class="stat-label">${t('popups.naturalEvent.pressure')}</span>
-          <span class="stat-value">${event.pressureMb} mb</span>
-        </div>` : ''}
-        ${event.movementSpeedKt != null ? `
-        <div class="popup-stat">
-          <span class="stat-label">${t('popups.naturalEvent.movement')}</span>
-          <span class="stat-value">${event.movementDir != null ? event.movementDir + '° at ' : ''}${event.movementSpeedKt} kt</span>
-        </div>` : ''}
-        ${agencyObservations.length > 0 ? `
-        <div class="popup-stat" style="grid-column: 1 / -1">
-          <span class="stat-label">Agency observations</span>
-          <span class="stat-value">${agencyObservations.length}</span>
-        </div>
-        ${agencyObservationRows}` : ''}
       </div>
     `;
   }
@@ -3387,7 +2516,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
         <span class="popup-icon">${typeIcons[port.type] || '🚢'}</span>
         <span class="popup-title">${escapeHtml(port.name.toUpperCase())}</span>
         <span class="popup-badge ${typeColors[port.type] || 'normal'}">${typeLabels[port.type] || port.type.toUpperCase()}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(port.country)}</div>
@@ -3424,7 +2553,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
         <span class="popup-icon">🚀</span>
         <span class="popup-title">${escapeHtml(port.name.toUpperCase())}</span>
         <span class="popup-badge ${statusColors[port.status] || 'normal'}">${statusLabels[port.status] || port.status.toUpperCase()}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(port.operator)} • ${escapeHtml(port.country)}</div>
@@ -3463,7 +2592,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
         <span class="popup-icon">${icon}</span>
         <span class="popup-title">${escapeHtml(mine.name.toUpperCase())}</span>
         <span class="popup-badge ${statusColors[mine.status] || 'normal'}">${statusLabels[mine.status] || mine.status.toUpperCase()}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${t('popups.mineral.projectSubtitle', { mineral: escapeHtml(mine.mineral.toUpperCase()) })}</div>
@@ -3494,7 +2623,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header exchange">
         <span class="popup-title">${escapeHtml(exchange.shortName)}</span>
         <span class="popup-badge ${tierClass}">${tierLabel}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(exchange.name)}</div>
@@ -3518,7 +2647,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header financial-center">
         <span class="popup-title">${escapeHtml(center.name)}</span>
         <span class="popup-badge">${typeLabel}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-stats">
@@ -3548,7 +2677,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header central-bank">
         <span class="popup-title">${escapeHtml(bank.shortName)}</span>
         <span class="popup-badge">${typeLabel}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${escapeHtml(bank.name)}</div>
@@ -3571,7 +2700,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header commodity-hub">
         <span class="popup-title">${escapeHtml(hub.name)}</span>
         <span class="popup-badge">${typeLabel}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-stats">
@@ -3610,11 +2739,11 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
           <span class="section-label">${t('popups.iranEvent.relatedEvents')}</span>
           <ul class="cluster-list">
             ${event.relatedEvents.map(r => {
-      const rSev = this.normalizeSeverity(r.severity);
-      const rTime = r.timestamp ? this.getTimeAgo(new Date(r.timestamp)) : '';
-      const rTitle = r.title.length > 60 ? r.title.slice(0, 60) + '…' : r.title;
-      return `<li class="cluster-item"><span class="popup-badge ${rSev}">${escapeHtml(rSev.toUpperCase())}</span> ${escapeHtml(rTitle)}${rTime ? ` <span style="color:var(--text-muted);font-size:calc(10px * var(--wm-panel-effective-scale, 1));">${escapeHtml(rTime)}</span>` : ''}</li>`;
-    }).join('')}
+              const rSev = this.normalizeSeverity(r.severity);
+              const rTime = r.timestamp ? this.getTimeAgo(new Date(r.timestamp)) : '';
+              const rTitle = r.title.length > 60 ? r.title.slice(0, 60) + '…' : r.title;
+              return `<li class="cluster-item"><span class="popup-badge ${rSev}" style="font-size:9px;padding:1px 4px;">${escapeHtml(rSev.toUpperCase())}</span> ${escapeHtml(rTitle)}${rTime ? ` <span style="color:var(--text-muted);font-size:10px;">${escapeHtml(rTime)}</span>` : ''}</li>`;
+            }).join('')}
           </ul>
         </div>` : '';
 
@@ -3622,7 +2751,7 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header iranEvent ${severity}">
         <span class="popup-title">${escapeHtml(event.title)}</span>
         <span class="popup-badge ${severity}">${escapeHtml(severity.toUpperCase())}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-stats">
@@ -3653,44 +2782,28 @@ ${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"
       <div class="popup-header" style="background:${headerColor}">
         <span class="popup-title">${t('popups.gpsJamming.title')}</span>
         <span class="popup-badge ${badgeClass}">${escapeHtml(data.level.toUpperCase())}</span>
-        <button class="popup-close" aria-label="Close">×</button>
+        <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
         <div class="popup-stats">
           <div class="popup-stat">
-            <span class="stat-label">${t('popups.gpsJamming.navPerformance')}</span>
-            <span class="stat-value">${Number(data.pct).toFixed(1)}%</span>
+            <span class="stat-label">${t('popups.gpsJamming.interference')}</span>
+            <span class="stat-value">${data.pct}%</span>
           </div>
           <div class="popup-stat">
-            <span class="stat-label">${t('popups.gpsJamming.samples')}</span>
-            <span class="stat-value">${data.affectedAircraft}</span>
+            <span class="stat-label">${t('popups.gpsJamming.aircraftAffected')}</span>
+            <span class="stat-value">${data.bad} / ${data.total}</span>
           </div>
           <div class="popup-stat">
-            <span class="stat-label">${t('popups.gpsJamming.aircraft')}</span>
-            <span class="stat-value">${data.totalAircraft}</span>
+            <span class="stat-label">${t('popups.gpsJamming.aircraftNormal')}</span>
+            <span class="stat-value">${data.good}</span>
           </div>
           <div class="popup-stat">
             <span class="stat-label">${t('popups.gpsJamming.h3Hex')}</span>
-            <span class="stat-value" style="font-size:calc(10px * var(--wm-panel-effective-scale, 1))">${escapeHtml(data.h3)}</span>
+            <span class="stat-value" style="font-size:10px">${escapeHtml(data.h3)}</span>
           </div>
         </div>
       </div>
     `;
-  }
-}
-
-function formatRadiationSources(observation: RadiationObservation): string {
-  const uniqueSources = [...new Set(observation.contributingSources)];
-  return uniqueSources.length > 0 ? uniqueSources.join(' + ') : observation.source;
-}
-
-function formatRadiationConfidence(confidence: RadiationObservation['confidence']): string {
-  switch (confidence) {
-    case 'high':
-      return 'High';
-    case 'medium':
-      return 'Medium';
-    default:
-      return 'Low';
   }
 }

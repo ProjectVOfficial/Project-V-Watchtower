@@ -1,0 +1,27 @@
+{
+  "name": "Project V Watchtower Phase 20.6 Phoenix AI Bridge",
+  "target_package": "project-v-watchtower",
+  "target_version": "1.1.0-1",
+  "phoenix_minimum": "0.9.8",
+  "changed_files": [
+    "src/services/phoenix-ai-bridge.ts",
+    "src/services/operations-center.ts",
+    "src/components/OperationsPanels.ts",
+    "src/components/AirOperationsPanel.ts",
+    "src/app/panel-layout.ts",
+    "src/styles/project-v-theme.css",
+    "src-tauri/src/main.rs",
+    "PHASE-20.6-PHOENIX-AI-BRIDGE.md"
+  ],
+  "new_files": [
+    "src/services/phoenix-ai-bridge.ts",
+    "PHASE-20.6-PHOENIX-AI-BRIDGE.md"
+  ],
+  "features": [
+    "secure Phoenix pairing",
+    "automatic HIGH+ alert forwarding",
+    "manual Alert Center Phoenix send",
+    "Air Operations Phoenix handoff",
+    "Phoenix receiver health/test controls"
+  ]
+}

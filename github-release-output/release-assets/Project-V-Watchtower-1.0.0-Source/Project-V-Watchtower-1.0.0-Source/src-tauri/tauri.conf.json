@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Project V Watchtower",
+  "mainBinaryName": "project-v-watchtower",
+  "version": "1.0.0",
+  "identifier": "app.worldmonitor.desktop",
+  "build": {
+    "beforeDevCommand": "npm run build:sidecar-sebuf && npm run dev",
+    "beforeBuildCommand": "npm run build:desktop",
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:3000"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Project V // Watchtower",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1200,
+        "minHeight": 720,
+        "resizable": true,
+        "fullscreen": false,
+        "backgroundColor": [
+          8,
+          6,
+          6,
+          255
+        ]
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' https: http://localhost:5173 http://127.0.0.1:* ws: wss: blob: data:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval' https://www.youtube.com; worker-src 'self' blob:; font-src 'self' data: https:; media-src 'self' data: blob: https: http://127.0.0.1:* http://localhost:*; frame-src 'self' https: http://127.0.0.1:* http://localhost:* https://worldmonitor.app https://tech.worldmonitor.app https://www.youtube.com https://www.youtube-nocookie.com;"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "msi"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Project V Watchtower situational intelligence desktop app",
+    "longDescription": "A V-inspired local-first situational intelligence interface built on the open-source World Monitor platform.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [
+      "../api",
+      "sidecar/local-api-server.mjs",
+      "sidecar/package.json",
+      "sidecar/node",
+      "../data",
+      "../src/config"
+    ],
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "https://timestamp.digicert.com",
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installMode": "both",
+        "displayLanguageSelector": false
+      }
+    },
+    "macOS": {
+      "hardenedRuntime": true
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    },
+    "publisher": "Project V",
+    "copyright": "Copyright \u00a9 2026 Project V contributors",
+    "licenseFile": "../LICENSE"
+  }
+}

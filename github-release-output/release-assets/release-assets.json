@@ -1,0 +1,25 @@
+﻿{
+    "product":  "Project V Watchtower",
+    "version":  "1.0.0",
+    "createdAtUtc":  "2026-08-05T01:59:26.6844123Z",
+    "releaseStatus":  "experimental-pre-alpha",
+    "codeSigned":  false,
+    "automaticUpdaterEnabled":  false,
+    "assets":  [
+                   {
+                       "name":  "Project-V-Watchtower-1.0.0-Windows-x64-Setup.exe",
+                       "type":  "nsis",
+                       "sha256":  "988698290c6ef7ee4134c3a2fc86dcf8ddbb0579af8a315e5e2698f512046a04"
+                   },
+                   {
+                       "name":  "Project-V-Watchtower-1.0.0-Windows-x64.msi",
+                       "type":  "msi",
+                       "sha256":  "6bfc99041101b31c56f216b2c103b5655ad22ed030b9877c65552712f7826050"
+                   },
+                   {
+                       "name":  "Project-V-Watchtower-1.0.0-Source.zip",
+                       "type":  "corresponding-source",
+                       "sha256":  "e315f900c97e691a4937ba4b95fba82bda5e0687b2b6fc856d47e4d511a5aea8"
+                   }
+               ]
+}

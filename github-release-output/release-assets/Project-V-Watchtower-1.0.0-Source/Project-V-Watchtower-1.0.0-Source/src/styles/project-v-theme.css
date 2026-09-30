@@ -1,0 +1,4735 @@
+/*
+ * Project V // Watchtower visual shell
+ * Original interface theme layered over the World Monitor application.
+ * Upstream code remains AGPL-3.0-only; see LICENSE and PROJECT_V_PHASE_1.md.
+ */
+
+html[data-brand="project-v"] {
+  color-scheme: dark;
+  --bg: #080606;
+  --bg-secondary: #0d0909;
+  --surface: #100c0c;
+  --surface-hover: #1a1111;
+  --surface-active: #251313;
+  --border: #342020;
+  --border-strong: #5b2a2a;
+  --border-subtle: #231515;
+  --text: #e7dfcf;
+  --text-secondary: #c9bfae;
+  --text-dim: #938a7b;
+  --text-muted: #746b60;
+  --text-faint: #5f574f;
+  --text-ghost: #443d38;
+  --accent: #d23b3b;
+  --overlay-subtle: rgba(211, 59, 59, 0.035);
+  --overlay-light: rgba(211, 59, 59, 0.07);
+  --overlay-medium: rgba(211, 59, 59, 0.12);
+  --overlay-heavy: rgba(211, 59, 59, 0.2);
+  --shadow-color: rgba(0, 0, 0, 0.72);
+  --scrollbar-thumb: #3c2525;
+  --scrollbar-thumb-hover: #7c3434;
+  --input-bg: #0b0808;
+  --panel-bg: #100c0c;
+  --panel-border: #342020;
+  --map-bg: #050303;
+  --map-grid: #351010;
+  --map-country: #151010;
+  --map-stroke: #6b2727;
+  --semantic-critical: #ff5d5d;
+  --semantic-high: #e78b47;
+  --semantic-elevated: #d9b35f;
+  --semantic-normal: #5fbe82;
+  --semantic-info: #84a9b8;
+  --semantic-positive: #64c98c;
+  --status-live: #5fd58a;
+  --status-cached: #d9b35f;
+  --status-unavailable: #ff5d5d;
+  --red: #d23b3b;
+  --green: #5fd58a;
+  --yellow: #d9b35f;
+  --font-mono: "Cascadia Mono", "Cascadia Code", "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-body: var(--font-mono);
+}
+
+html[data-brand="project-v"][data-theme="light"] {
+  --bg: #080606;
+  --bg-secondary: #0d0909;
+  --surface: #100c0c;
+  --surface-hover: #1a1111;
+  --surface-active: #251313;
+  --border: #342020;
+  --border-strong: #5b2a2a;
+  --border-subtle: #231515;
+  --text: #e7dfcf;
+  --text-secondary: #c9bfae;
+  --text-dim: #938a7b;
+  --text-muted: #746b60;
+  --text-faint: #5f574f;
+  --text-ghost: #443d38;
+  --accent: #d23b3b;
+  --panel-bg: #100c0c;
+  --panel-border: #342020;
+}
+
+html[data-brand="project-v"] body {
+  background:
+    radial-gradient(circle at 14% 0%, rgba(132, 20, 20, 0.16), transparent 34%),
+    radial-gradient(circle at 88% 8%, rgba(57, 18, 18, 0.18), transparent 30%),
+    #080606;
+  color: var(--text);
+}
+
+html[data-brand="project-v"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  pointer-events: none;
+  opacity: 0.13;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 3px,
+    rgba(255, 255, 255, 0.018) 4px
+  );
+  mix-blend-mode: screen;
+}
+
+html[data-brand="project-v"] ::selection {
+  background: rgba(210, 59, 59, 0.42);
+  color: #fff8ea;
+}
+
+html[data-brand="project-v"] * {
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+/* Command header */
+html[data-brand="project-v"] .v-command-header {
+  height: 58px;
+  min-height: 58px;
+  padding: 0 14px;
+  background: rgba(9, 7, 7, 0.97);
+  border-bottom: 1px solid #3d1f1f;
+  box-shadow: 0 7px 24px rgba(0, 0, 0, 0.28);
+  position: relative;
+  z-index: 420;
+}
+
+html[data-brand="project-v"] .v-command-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(210, 59, 59, 0.9) 18%, rgba(210, 59, 59, 0.2) 54%, transparent);
+  pointer-events: none;
+}
+
+html[data-brand="project-v"] .v-brand-zone {
+  min-width: 0;
+  gap: 10px;
+  height: 100%;
+}
+
+html[data-brand="project-v"] .v-mark {
+  width: 35px;
+  height: 35px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 35px;
+  color: #ee4b4b;
+  border: 1px solid #842f2f;
+  background:
+    linear-gradient(135deg, rgba(210, 59, 59, 0.17), transparent 55%),
+    #0a0707;
+  clip-path: polygon(10% 0, 90% 0, 100% 16%, 100% 84%, 90% 100%, 10% 100%, 0 84%, 0 16%);
+  box-shadow: inset 0 0 16px rgba(210, 59, 59, 0.13), 0 0 16px rgba(210, 59, 59, 0.08);
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 1;
+}
+
+html[data-brand="project-v"] .v-mark span {
+  transform: translateY(-1px);
+  text-shadow: 0 0 12px rgba(238, 75, 75, 0.45);
+}
+
+html[data-brand="project-v"] .v-brand-copy {
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+}
+
+html[data-brand="project-v"] .v-brand-line {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .logo {
+  font-family: Georgia, "Times New Roman", serif;
+  color: #f1e6d4;
+  font-size: 13px;
+  letter-spacing: 2.1px;
+  text-shadow: 0 0 14px rgba(255, 233, 210, 0.08);
+}
+
+html[data-brand="project-v"] .v-product-name {
+  color: #d23b3b;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 1.8px;
+}
+
+html[data-brand="project-v"] .version {
+  color: #766b61;
+  opacity: 1;
+  margin-left: 0;
+  font-size: 8px;
+}
+
+html[data-brand="project-v"] .beta-badge {
+  margin-left: 1px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  color: #d9b35f;
+  background: rgba(217, 179, 95, 0.08);
+  border: 1px solid rgba(217, 179, 95, 0.34);
+  font-size: 7px;
+  letter-spacing: 0.75px;
+}
+
+html[data-brand="project-v"] .v-brand-subtitle {
+  color: #6e645b;
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 1.55px;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .v-primary-nav {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  margin-left: 8px;
+  min-width: 0;
+}
+
+html[data-brand="project-v"] .v-nav-item {
+  position: relative;
+  min-width: 0;
+  padding: 0 13px;
+  border: 0;
+  background: transparent;
+  color: #756b61;
+  font: 650 9px/1 var(--font-mono);
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+html[data-brand="project-v"] .v-nav-item::after {
+  content: "";
+  position: absolute;
+  left: 13px;
+  right: 13px;
+  bottom: 0;
+  height: 2px;
+  background: transparent;
+}
+
+html[data-brand="project-v"] .v-nav-item.active {
+  color: #e6ddce;
+  background: linear-gradient(to bottom, transparent, rgba(210, 59, 59, 0.055));
+}
+
+html[data-brand="project-v"] .v-nav-item.active::after {
+  background: #d23b3b;
+  box-shadow: 0 0 10px rgba(210, 59, 59, 0.45);
+}
+
+html[data-brand="project-v"] .v-nav-item:disabled {
+  cursor: default;
+  opacity: 0.52;
+}
+
+html[data-brand="project-v"] .v-header-right {
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+html[data-brand="project-v"] .header-clock {
+  position: static;
+  left: auto;
+  transform: none;
+  color: #948879;
+  font-size: 8px;
+  letter-spacing: 0.7px;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .status-indicator {
+  gap: 5px;
+  color: #887e72;
+  font-size: 8px;
+  letter-spacing: 0.8px;
+}
+
+html[data-brand="project-v"] .status-dot {
+  width: 5px;
+  height: 5px;
+  background: var(--status-live);
+  box-shadow: 0 0 8px rgba(95, 213, 138, 0.38);
+}
+
+html[data-brand="project-v"] .search-btn,
+html[data-brand="project-v"] .fullscreen-btn,
+html[data-brand="project-v"] .unified-settings-btn,
+html[data-brand="project-v"] .status-panel-toggle {
+  height: 27px;
+  border-radius: 3px;
+  border: 1px solid #3a2424;
+  background: #0b0808;
+  color: #a99e8f;
+}
+
+html[data-brand="project-v"] .search-btn {
+  padding: 0 9px;
+  margin-right: 0;
+  font-size: 8px;
+  letter-spacing: 0.8px;
+}
+
+html[data-brand="project-v"] .search-btn kbd {
+  background: #1c1111;
+  color: #8b7e72;
+  border: 1px solid #352020;
+  font-size: 7px;
+}
+
+html[data-brand="project-v"] .search-btn:hover,
+html[data-brand="project-v"] .fullscreen-btn:hover,
+html[data-brand="project-v"] .unified-settings-btn:hover,
+html[data-brand="project-v"] .status-panel-toggle:hover {
+  color: #f0e6d5;
+  border-color: #9a3636;
+  background: #1a0e0e;
+  box-shadow: 0 0 12px rgba(210, 59, 59, 0.09);
+}
+
+html[data-brand="project-v"] .unified-settings-btn:hover {
+  transform: none;
+}
+
+html[data-brand="project-v"] .status-panel-container {
+  margin-left: 0;
+}
+
+/* Operations toolbar */
+html[data-brand="project-v"] .v-opsbar {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  background: rgba(11, 8, 8, 0.98);
+  border-bottom: 1px solid #281919;
+  position: relative;
+  z-index: 410;
+}
+
+html[data-brand="project-v"] .v-opsbar-left,
+html[data-brand="project-v"] .v-opsbar-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+html[data-brand="project-v"] .v-ops-label {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  color: #6f655c;
+  border: 1px solid transparent;
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.8px;
+}
+
+html[data-brand="project-v"] .v-ops-label.active {
+  color: #c7bdae;
+  border-color: #302020;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+html[data-brand="project-v"] .v-ops-separator {
+  width: 1px;
+  height: 15px;
+  background: #2f1d1d;
+  margin: 0 4px;
+}
+
+html[data-brand="project-v"] .v-source-state {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #647a69;
+  font-size: 7px;
+  letter-spacing: 0.75px;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .v-region-label {
+  color: #655d55;
+  font-size: 7px;
+  letter-spacing: 1px;
+}
+
+html[data-brand="project-v"] .region-select {
+  height: 24px;
+  min-width: 104px;
+  padding: 0 24px 0 8px;
+  color: #b8ad9e;
+  background-color: #0a0707;
+  border-color: #332020;
+  border-radius: 3px;
+  font-size: 8px;
+  letter-spacing: 0.45px;
+  text-transform: uppercase;
+}
+
+html[data-brand="project-v"] .region-select:hover,
+html[data-brand="project-v"] .region-select:focus {
+  border-color: #843333;
+}
+
+html[data-brand="project-v"] .v-deck-mode-btn {
+  height: 24px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #4a2929;
+  border-radius: 3px;
+  background: #100a0a;
+  color: #baaa9b;
+  font: 700 8px/1 var(--font-mono);
+  letter-spacing: 0.75px;
+  cursor: pointer;
+}
+
+html[data-brand="project-v"] .v-deck-mode-btn:hover {
+  border-color: #9b3838;
+  color: #f1e5d3;
+}
+
+html[data-brand="project-v"] .v-deck-mode-btn.active {
+  color: #fff0dc;
+  background: rgba(210, 59, 59, 0.16);
+  border-color: #c33a3a;
+  box-shadow: inset 0 0 13px rgba(210, 59, 59, 0.08), 0 0 12px rgba(210, 59, 59, 0.08);
+}
+
+html[data-brand="project-v"] .v-deck-mode-icon {
+  color: #d23b3b;
+  font-size: 9px;
+}
+
+html[data-brand="project-v"] .v-attribution {
+  color: #584f48;
+  font-size: 6.5px;
+  letter-spacing: 0.65px;
+  text-decoration: none;
+  white-space: nowrap;
+  margin-left: 3px;
+}
+
+html[data-brand="project-v"] .v-attribution:hover {
+  color: #a89888;
+}
+
+/* Workspace and map */
+html[data-brand="project-v"] .main-content {
+  gap: 8px;
+  padding: 8px;
+  background:
+    linear-gradient(rgba(210, 59, 59, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(210, 59, 59, 0.018) 1px, transparent 1px),
+    transparent;
+  background-size: 36px 36px;
+}
+
+html[data-brand="project-v"] .map-section {
+  height: 49vh;
+  min-height: 320px;
+  border-color: #332020;
+  border-radius: 6px;
+  background: #0d0909;
+  box-shadow: 0 9px 26px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+html[data-brand="project-v"] .map-section.pinned {
+  top: 8px;
+}
+
+html[data-brand="project-v"] .map-section::before,
+html[data-brand="project-v"] .panel::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 34px;
+  height: 1px;
+  background: #a93434;
+  opacity: 0.68;
+  z-index: 3;
+  pointer-events: none;
+}
+
+html[data-brand="project-v"] .map-container {
+  background-color: #040303;
+}
+
+html[data-brand="project-v"] .map-pin-btn {
+  width: 25px;
+  height: 23px;
+  padding: 0;
+  border-radius: 3px;
+  background: #0b0808;
+  border-color: #352222;
+}
+
+html[data-brand="project-v"] .map-pin-btn:hover {
+  color: #f0e3d0;
+  background: #1b0e0e;
+  border-color: #8d3434;
+}
+
+html[data-brand="project-v"] .map-pin-btn.active {
+  color: #fff0dc;
+  background: #8d2f2f;
+  border-color: #c34141;
+}
+
+html[data-brand="project-v"] .v-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+html[data-brand="project-v"] .v-panel-index {
+  color: #783131;
+  font-size: 7px;
+  letter-spacing: 0.6px;
+}
+
+/* Modules */
+html[data-brand="project-v"] .panels-grid {
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-auto-rows: minmax(220px, 390px);
+  gap: 8px;
+  padding: 0;
+  overflow: visible;
+}
+
+html[data-brand="project-v"] .panel {
+  background: linear-gradient(145deg, rgba(18, 13, 13, 0.99), rgba(12, 9, 9, 0.99));
+  border-color: #332020;
+  border-radius: 6px;
+  min-height: 220px;
+  cursor: default;
+  box-shadow: 0 7px 22px rgba(0, 0, 0, 0.2);
+  contain: layout paint style;
+}
+
+html[data-brand="project-v"] .panel:hover {
+  border-color: #442626;
+}
+
+html[data-brand="project-v"] .panel-header {
+  min-height: 34px;
+  padding: 6px 9px;
+  background: linear-gradient(90deg, rgba(210, 59, 59, 0.042), rgba(255, 255, 255, 0.012) 42%, transparent);
+  border-bottom-color: #281919;
+}
+
+html[data-brand="project-v"] .panel-header::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  flex: 0 0 4px;
+  border-radius: 50%;
+  background: #8f3434;
+  box-shadow: 0 0 7px rgba(210, 59, 59, 0.3);
+  margin-right: 2px;
+}
+
+html[data-brand="project-v"] .panel-header-left {
+  gap: 7px;
+  min-width: 0;
+}
+
+html[data-brand="project-v"] .panel-title {
+  color: #9e9689;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html[data-brand="project-v"] .panel-count {
+  color: #a79b8d;
+  background: #211414;
+  border: 1px solid #372121;
+  border-radius: 8px;
+  padding: 1px 5px;
+  font-size: 7px;
+}
+
+html[data-brand="project-v"] .panel-content {
+  padding: 9px;
+}
+
+html[data-brand="project-v"] .panel-data-badge {
+  border-radius: 2px;
+  font-size: 7px;
+  letter-spacing: 0.55px;
+}
+
+html[data-brand="project-v"] .panel-info-btn {
+  width: 13px;
+  height: 13px;
+  color: #756b61;
+  border-color: #4a3434;
+}
+
+html[data-brand="project-v"] .panel-info-btn:hover {
+  color: #e4d6c3;
+  border-color: #ad3c3c;
+  background: rgba(210, 59, 59, 0.11);
+}
+
+html[data-brand="project-v"] .panel.dragging {
+  opacity: 0.72;
+  transform: scale(1.012);
+  border-color: #d23b3b;
+  box-shadow: 0 0 0 1px rgba(210, 59, 59, 0.32), 0 12px 34px rgba(0, 0, 0, 0.55), 0 0 24px rgba(210, 59, 59, 0.13);
+}
+
+/* Locked by default. Editing reveals movement and resize affordances. */
+html[data-brand="project-v"] .panel-resize-handle,
+html[data-brand="project-v"] .panel-col-resize-handle,
+html[data-brand="project-v"] .map-resize-handle {
+  opacity: 0;
+  pointer-events: none !important;
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .panel {
+  cursor: grab;
+  border-color: #593030;
+  box-shadow: inset 0 0 0 1px rgba(210, 59, 59, 0.035), 0 7px 22px rgba(0, 0, 0, 0.2);
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .panel-header {
+  background:
+    repeating-linear-gradient(135deg, rgba(210, 59, 59, 0.045) 0 5px, transparent 5px 10px),
+    #100b0b;
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .panel-resize-handle,
+html[data-brand="project-v"] body.deck-edit-mode .panel-col-resize-handle,
+html[data-brand="project-v"] body.deck-edit-mode .map-resize-handle {
+  opacity: 1;
+  pointer-events: auto !important;
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .panel-resize-handle {
+  height: 15px;
+  background: linear-gradient(to top, rgba(210, 59, 59, 0.12), transparent);
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .panel-col-resize-handle {
+  width: 15px;
+  background: linear-gradient(to left, rgba(210, 59, 59, 0.12), transparent);
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .panel-resize-handle:hover,
+html[data-brand="project-v"] body.deck-edit-mode .panel-col-resize-handle:hover {
+  background-color: rgba(210, 59, 59, 0.07);
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .panel-resize-handle::after,
+html[data-brand="project-v"] body.deck-edit-mode .panel-col-resize-handle::after {
+  color: #a23d3d;
+}
+
+html[data-brand="project-v"] .map-resize-handle {
+  background: linear-gradient(to bottom, transparent, rgba(210, 59, 59, 0.16));
+}
+
+html[data-brand="project-v"] .map-resize-handle::after {
+  background: #743030;
+}
+
+/* Modals, popovers, and floating controls */
+html[data-brand="project-v"] .modal,
+html[data-brand="project-v"] .search-modal,
+html[data-brand="project-v"] .status-panel,
+html[data-brand="project-v"] .unified-settings-modal {
+  background: #0f0b0b;
+  border-color: #4a2828;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(210, 59, 59, 0.04);
+}
+
+html[data-brand="project-v"] .unified-settings-tab.active {
+  color: #eee2d0;
+  border-bottom-color: #d23b3b;
+}
+
+html[data-brand="project-v"] input,
+html[data-brand="project-v"] select,
+html[data-brand="project-v"] textarea,
+html[data-brand="project-v"] button {
+  font-family: var(--font-mono);
+}
+
+html[data-brand="project-v"] :focus-visible {
+  outline: 1px solid #d23b3b;
+  outline-offset: 2px;
+}
+
+/* Keep map/fullscreen layers above the command shell when intentionally expanded. */
+html[data-brand="project-v"] .live-news-fullscreen {
+  z-index: 1000;
+}
+
+/* Responsive command shell */
+@media (max-width: 1320px) {
+  html[data-brand="project-v"] .v-primary-nav .v-nav-item:nth-child(n + 4) {
+    display: none;
+  }
+
+  html[data-brand="project-v"] .v-nav-item {
+    padding-inline: 9px;
+  }
+
+  html[data-brand="project-v"] .v-attribution {
+    display: none;
+  }
+}
+
+@media (max-width: 1080px) {
+  html[data-brand="project-v"] .v-brand-subtitle,
+  html[data-brand="project-v"] .v-primary-nav,
+  html[data-brand="project-v"] .v-ops-label:not(.active),
+  html[data-brand="project-v"] .v-source-state,
+  html[data-brand="project-v"] .header-clock {
+    display: none;
+  }
+
+  html[data-brand="project-v"] .v-brand-copy {
+    min-width: 0;
+  }
+
+  html[data-brand="project-v"] .panels-grid {
+    grid-template-columns: repeat(auto-fill, minmax(285px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  html[data-brand="project-v"] .v-command-header {
+    min-height: 52px;
+    height: 52px;
+    padding: 0 8px;
+  }
+
+  html[data-brand="project-v"] .v-mark {
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
+    font-size: 21px;
+  }
+
+  html[data-brand="project-v"] .v-product-name,
+  html[data-brand="project-v"] .version,
+  html[data-brand="project-v"] .beta-badge,
+  html[data-brand="project-v"] .v-local-status,
+  html[data-brand="project-v"] .search-btn kbd,
+  html[data-brand="project-v"] .v-region-label {
+    display: none;
+  }
+
+  html[data-brand="project-v"] .logo {
+    font-size: 11px;
+  }
+
+  html[data-brand="project-v"] .search-btn {
+    width: 29px;
+    overflow: hidden;
+    color: transparent;
+    position: relative;
+  }
+
+  html[data-brand="project-v"] .search-btn::after {
+    content: "⌕";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #aa9d8e;
+    font-size: 15px;
+  }
+
+  html[data-brand="project-v"] .v-opsbar {
+    padding: 0 8px;
+  }
+
+  html[data-brand="project-v"] .v-opsbar-left {
+    display: none;
+  }
+
+  html[data-brand="project-v"] .v-opsbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  html[data-brand="project-v"] .main-content {
+    padding: 5px;
+    gap: 5px;
+  }
+
+  html[data-brand="project-v"] .map-section {
+    min-height: 220px;
+    border-radius: 4px;
+  }
+
+  html[data-brand="project-v"] .panels-grid {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  html[data-brand="project-v"] .panel {
+    border-radius: 4px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Phase 2 — movable map, saved workspaces, and prominent API configuration
+   -------------------------------------------------------------------------- */
+html[data-brand="project-v"] .v-api-settings-btn {
+  height: 29px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #4b2929;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #151010, #0c0808);
+  color: #d2c6b5;
+  font: 750 8px/1 var(--font-mono);
+  letter-spacing: 0.85px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .v-api-settings-btn:hover {
+  color: #fff0dc;
+  border-color: #b13b3b;
+  background: #1b0d0d;
+  box-shadow: 0 0 16px rgba(210, 59, 59, 0.12);
+}
+
+html[data-brand="project-v"] .v-api-settings-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d9b35f;
+  box-shadow: 0 0 8px rgba(217, 179, 95, 0.45);
+}
+
+html[data-brand="project-v"] .v-api-settings-count {
+  padding: 2px 5px;
+  border: 1px solid #4b3232;
+  border-radius: 8px;
+  color: #b9aa96;
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 6.5px;
+  letter-spacing: 0.55px;
+}
+
+html[data-brand="project-v"] .v-api-settings-btn.has-missing {
+  border-color: rgba(217, 179, 95, 0.62);
+  color: #ead39d;
+}
+
+html[data-brand="project-v"] .v-api-settings-btn.has-missing .v-api-settings-dot {
+  animation: v-api-pulse 1.8s ease-in-out infinite;
+}
+
+html[data-brand="project-v"] .v-api-settings-btn.is-ready .v-api-settings-dot {
+  background: #5fd58a;
+  box-shadow: 0 0 9px rgba(95, 213, 138, 0.55);
+}
+
+html[data-brand="project-v"] .v-api-settings-btn.is-managed .v-api-settings-dot {
+  background: #84a9b8;
+  box-shadow: 0 0 9px rgba(132, 169, 184, 0.45);
+}
+
+@keyframes v-api-pulse {
+  0%, 100% { opacity: 0.58; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+html[data-brand="project-v"] .v-workspace-state {
+  min-width: 155px;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .v-workspace-state strong {
+  color: #d6cabc;
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+
+html[data-brand="project-v"] .v-workspace-state span {
+  color: #695f57;
+  font-size: 6px;
+  letter-spacing: 0.7px;
+}
+
+html[data-brand="project-v"] .v-deck-action-btn {
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid #342222;
+  border-radius: 3px;
+  background: #0b0808;
+  color: #796f65;
+  font: 700 7px/1 var(--font-mono);
+  letter-spacing: 0.65px;
+  cursor: pointer;
+}
+
+html[data-brand="project-v"] .v-deck-action-btn:hover {
+  color: #eadfce;
+  border-color: #813232;
+  background: #160d0d;
+}
+
+/* The map is now a normal deck module and participates in the same grid. */
+html[data-brand="project-v"] .main-content {
+  gap: 0;
+}
+
+html[data-brand="project-v"] .panels-grid > .map-section {
+  width: auto;
+  max-width: none;
+  align-self: stretch;
+  min-height: 320px;
+  max-height: 90vh;
+  grid-row: span 2;
+  contain: layout paint style;
+}
+
+html[data-brand="project-v"] .map-section.col-span-1 { grid-column: span 1 !important; }
+html[data-brand="project-v"] .map-section.col-span-2 { grid-column: span 2 !important; }
+html[data-brand="project-v"] .map-section.col-span-3 { grid-column: span 3 !important; }
+
+html[data-brand="project-v"] .map-section .map-container.panel-content {
+  padding: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .map-section {
+  cursor: grab;
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .map-section .map-container {
+  cursor: default;
+}
+
+html[data-brand="project-v"] .map-section .panel-col-resize-handle {
+  z-index: 205;
+}
+
+html[data-brand="project-v"] .map-section.dragging {
+  opacity: 0.7;
+  transform: scale(1.006);
+  border-color: #d23b3b;
+  box-shadow: 0 0 0 1px rgba(210, 59, 59, 0.28), 0 15px 38px rgba(0, 0, 0, 0.58);
+}
+
+html[data-brand="project-v"] body[data-active-deck="global-pulse"] .v-command-header::after {
+  background: linear-gradient(90deg, transparent, rgba(217, 179, 95, 0.78) 18%, rgba(217, 179, 95, 0.16) 54%, transparent);
+}
+
+html[data-brand="project-v"] body[data-active-deck="live-ops"] .v-command-header::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 93, 93, 0.92) 18%, rgba(255, 93, 93, 0.18) 54%, transparent);
+}
+
+html[data-brand="project-v"] body[data-active-deck="intelligence"] .v-command-header::after {
+  background: linear-gradient(90deg, transparent, rgba(132, 169, 184, 0.8) 18%, rgba(132, 169, 184, 0.16) 54%, transparent);
+}
+
+/* Full settings window inherits the Project V shell without dashboard chrome. */
+html[data-brand="project-v"] body.settings-page,
+html[data-brand="project-v"] body.runtime-settings-page {
+  background: #080606;
+}
+
+@media (max-width: 1500px) {
+  html[data-brand="project-v"] .v-api-settings-count,
+  html[data-brand="project-v"] #deckExportBtn,
+  html[data-brand="project-v"] #deckImportBtn {
+    display: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  html[data-brand="project-v"] .v-api-settings-label,
+  html[data-brand="project-v"] .v-workspace-state span,
+  html[data-brand="project-v"] .v-deck-action-btn {
+    display: none;
+  }
+
+  html[data-brand="project-v"] .v-api-settings-btn {
+    width: 29px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  html[data-brand="project-v"] .v-workspace-state {
+    min-width: 94px;
+  }
+}
+
+@media (max-width: 768px) {
+  html[data-brand="project-v"] .panels-grid > .map-section,
+  html[data-brand="project-v"] .map-section.col-span-1,
+  html[data-brand="project-v"] .map-section.col-span-2,
+  html[data-brand="project-v"] .map-section.col-span-3 {
+    grid-column: 1 / -1 !important;
+    min-height: 220px;
+  }
+
+  html[data-brand="project-v"] .v-api-settings-btn {
+    display: inline-flex;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1080px) {
+  html[data-brand="project-v"] .v-primary-nav {
+    display: flex;
+  }
+
+  html[data-brand="project-v"] .v-brand-copy {
+    min-width: 132px;
+  }
+
+  html[data-brand="project-v"] .v-nav-item {
+    padding-inline: 7px;
+    font-size: 7px;
+  }
+}
+
+@media (max-width: 1180px) {
+  html[data-brand="project-v"] .panels-grid > .map-section,
+  html[data-brand="project-v"] .map-section.col-span-1,
+  html[data-brand="project-v"] .map-section.col-span-2,
+  html[data-brand="project-v"] .map-section.col-span-3 {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+html[data-brand="project-v"] .config-error-settings-btn {
+  border-color: #8e3333;
+  background: rgba(210, 59, 59, 0.12);
+  color: #f0ddc5;
+  letter-spacing: 0.65px;
+}
+
+html[data-brand="project-v"] .config-error-settings-btn:hover {
+  border-color: #d23b3b;
+  background: rgba(210, 59, 59, 0.22);
+  color: #fff3e2;
+}
+
+
+/* --------------------------------------------------------------------------
+   PROJECT V // PHASE THREE — VISUAL DECK EDITOR
+   -------------------------------------------------------------------------- */
+
+/* A deliberate three-column command grid prevents dense packing from making
+   neighboring modules appear to sit on top of the map. */
+html[data-brand="project-v"] .panels-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-flow: row;
+}
+
+html[data-brand="project-v"] .v-deck-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+html[data-brand="project-v"] .v-deck-action-btn.confirmed {
+  color: #9df0b8;
+  border-color: #39734d;
+  background: rgba(46, 125, 71, 0.16);
+}
+
+html[data-brand="project-v"] .v-icon-action {
+  width: 25px;
+  padding: 0;
+  justify-content: center;
+  font-size: 13px;
+}
+
+html[data-brand="project-v"] .v-module-library-btn span {
+  min-width: 13px;
+  height: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  padding: 0 3px;
+  border-radius: 7px;
+  color: #e8d9c5;
+  background: #512020;
+  font-size: 6px;
+}
+
+/* Map-width menu */
+html[data-brand="project-v"] .v-map-layout-control {
+  position: relative;
+  display: inline-flex;
+}
+
+html[data-brand="project-v"] .v-map-layout-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 1200;
+  width: 170px;
+  padding: 5px;
+  display: none;
+  border: 1px solid #512929;
+  border-radius: 4px;
+  background: #0b0707;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.68);
+}
+
+html[data-brand="project-v"] .v-map-layout-menu.open {
+  display: grid;
+  gap: 3px;
+}
+
+html[data-brand="project-v"] .v-map-layout-menu button {
+  min-height: 32px;
+  padding: 5px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: #a79a8b;
+  background: #100b0b;
+  font: 700 7px/1.2 var(--font-mono);
+  letter-spacing: 0.65px;
+  cursor: pointer;
+}
+
+html[data-brand="project-v"] .v-map-layout-menu button span {
+  color: #655d55;
+  font-size: 6px;
+  font-weight: 500;
+}
+
+html[data-brand="project-v"] .v-map-layout-menu button:hover,
+html[data-brand="project-v"] .v-map-layout-menu button.active {
+  color: #f1e3cf;
+  border-color: #8a3434;
+  background: rgba(210, 59, 59, 0.12);
+}
+
+/* Panel command controls */
+html[data-brand="project-v"] .v-panel-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+html[data-brand="project-v"] .v-panel-control {
+  width: 19px;
+  height: 19px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: #6f665d;
+  background: transparent;
+  font: 700 11px/1 var(--font-mono);
+  cursor: pointer;
+}
+
+html[data-brand="project-v"] .v-panel-control:hover {
+  color: #eadcc8;
+  border-color: #653030;
+  background: rgba(210, 59, 59, 0.12);
+}
+
+html[data-brand="project-v"] .v-panel-drag-handle,
+html[data-brand="project-v"] .v-panel-hide-btn {
+  display: none;
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .v-panel-drag-handle,
+html[data-brand="project-v"] body.deck-edit-mode .v-panel-hide-btn {
+  display: inline-flex;
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .v-panel-drag-handle {
+  color: #b44747;
+  cursor: grab;
+  touch-action: none;
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .v-panel-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Corner resizing complements the existing bottom and right edge handles. */
+html[data-brand="project-v"] .v-panel-corner-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 220;
+  width: 20px;
+  height: 20px;
+  display: none;
+  cursor: nwse-resize;
+  touch-action: none;
+  background:
+    linear-gradient(135deg, transparent 0 48%, rgba(210, 59, 59, 0.35) 49% 53%, transparent 54% 63%, rgba(210, 59, 59, 0.55) 64% 69%, transparent 70%);
+}
+
+html[data-brand="project-v"] body.deck-edit-mode .v-panel-corner-resize {
+  display: block;
+}
+
+html[data-brand="project-v"] .panel.corner-resizing {
+  user-select: none;
+  border-color: #c43c3c;
+}
+
+/* True drag-and-drop ghost and landing slot. */
+html[data-brand="project-v"] .v-deck-drop-placeholder {
+  min-width: 0;
+  border: 1px dashed #d24747;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(135deg, rgba(210, 59, 59, 0.14) 0 8px, rgba(210, 59, 59, 0.035) 8px 16px),
+    #100909;
+  box-shadow: inset 0 0 26px rgba(210, 59, 59, 0.09);
+}
+
+html[data-brand="project-v"] .v-deck-drop-placeholder::after {
+  content: "DROP MODULE HERE";
+  height: 100%;
+  min-height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9c4545;
+  font: 700 8px/1 var(--font-mono);
+  letter-spacing: 1.2px;
+}
+
+html[data-brand="project-v"] .v-deck-drop-placeholder.span-2 { grid-row: span 2; }
+html[data-brand="project-v"] .v-deck-drop-placeholder.span-3 { grid-row: span 3; }
+html[data-brand="project-v"] .v-deck-drop-placeholder.span-4 { grid-row: span 4; }
+html[data-brand="project-v"] .v-deck-drop-placeholder.col-span-1 { grid-column: span 1; }
+html[data-brand="project-v"] .v-deck-drop-placeholder.col-span-2 { grid-column: span 2; }
+html[data-brand="project-v"] .v-deck-drop-placeholder.col-span-3 { grid-column: span 3; }
+
+html[data-brand="project-v"] body.deck-drag-active,
+html[data-brand="project-v"] body.deck-drag-active * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+html[data-brand="project-v"] .panel.v-panel-floating {
+  margin: 0;
+  opacity: 0.9;
+  transform: rotate(0.15deg) scale(1.005);
+  border-color: #d23b3b;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(210, 59, 59, 0.34);
+  contain: layout paint style;
+}
+
+/* Workspace-only hidden and minimized states. */
+html[data-brand="project-v"] .panel.deck-hidden {
+  display: none !important;
+}
+
+html[data-brand="project-v"] .panel.deck-collapsed {
+  min-height: 36px !important;
+  height: 36px !important;
+  grid-row: span 1 !important;
+}
+
+html[data-brand="project-v"] .panel.deck-collapsed > .panel-content,
+html[data-brand="project-v"] .panel.deck-collapsed > .panel-resize-handle,
+html[data-brand="project-v"] .panel.deck-collapsed > .panel-col-resize-handle,
+html[data-brand="project-v"] .panel.deck-collapsed > .v-panel-corner-resize,
+html[data-brand="project-v"] .panel.deck-collapsed > .map-resize-handle {
+  display: none !important;
+}
+
+html[data-brand="project-v"] .panel.deck-collapsed > .panel-header {
+  height: 35px;
+  border-bottom: 0;
+}
+
+/* Maximize a single module without losing its grid location. */
+html[data-brand="project-v"] body.deck-has-maximized {
+  overflow: hidden;
+}
+
+html[data-brand="project-v"] body.deck-has-maximized::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1890;
+  background: rgba(2, 1, 1, 0.82);
+  backdrop-filter: blur(3px);
+}
+
+html[data-brand="project-v"] .panel.deck-maximized {
+  position: fixed !important;
+  inset: 88px 10px 10px 10px !important;
+  z-index: 1900 !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  display: flex !important;
+  opacity: 1 !important;
+  transform: none !important;
+  border-color: #9c3939;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.86), 0 0 0 1px rgba(210, 59, 59, 0.25);
+  contain: layout paint style;
+}
+
+html[data-brand="project-v"] .panel.deck-maximized > .panel-content {
+  display: block !important;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* Module library */
+html[data-brand="project-v"] .v-module-library-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2090;
+  display: none;
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(2px);
+}
+
+html[data-brand="project-v"] .v-module-library-backdrop.open {
+  display: block;
+}
+
+html[data-brand="project-v"] .v-module-library {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2100;
+  width: min(390px, 92vw);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(102%);
+  transition: transform 180ms ease;
+  border-left: 1px solid #633030;
+  background: #0b0707;
+  box-shadow: -22px 0 60px rgba(0, 0, 0, 0.72);
+}
+
+html[data-brand="project-v"] .v-module-library.open {
+  transform: translateX(0);
+}
+
+html[data-brand="project-v"] .v-module-library-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #382020;
+}
+
+html[data-brand="project-v"] .v-module-library-header div {
+  display: grid;
+  gap: 5px;
+}
+
+html[data-brand="project-v"] .v-module-library-header span {
+  color: #884040;
+  font: 700 7px/1 var(--font-mono);
+  letter-spacing: 1px;
+}
+
+html[data-brand="project-v"] .v-module-library-header strong {
+  color: #e7d9c5;
+  font: 800 14px/1 var(--font-mono);
+  letter-spacing: 1.2px;
+}
+
+html[data-brand="project-v"] .v-module-library-header button {
+  width: 29px;
+  height: 29px;
+  border: 1px solid #4d2929;
+  border-radius: 3px;
+  color: #a98e82;
+  background: #120b0b;
+  cursor: pointer;
+}
+
+html[data-brand="project-v"] .v-module-library > p {
+  margin: 12px 0;
+  color: #756a61;
+  font: 500 8px/1.55 var(--font-mono);
+}
+
+html[data-brand="project-v"] .v-module-library-list {
+  min-height: 0;
+  display: grid;
+  gap: 5px;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+html[data-brand="project-v"] .v-module-library-item {
+  min-height: 50px;
+  padding: 8px 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #2f1c1c;
+  border-radius: 4px;
+  background: #100b0b;
+}
+
+html[data-brand="project-v"] .v-module-library-item.is-hidden {
+  border-color: #552828;
+  background: rgba(210, 59, 59, 0.055);
+}
+
+html[data-brand="project-v"] .v-module-library-item > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+html[data-brand="project-v"] .v-module-library-item strong {
+  overflow: hidden;
+  color: #c9bcaa;
+  font: 700 8px/1 var(--font-mono);
+  letter-spacing: 0.55px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .v-module-library-item span {
+  color: #655d55;
+  font: 600 6px/1 var(--font-mono);
+  letter-spacing: 0.65px;
+}
+
+html[data-brand="project-v"] .v-module-library-item button {
+  min-width: 66px;
+  height: 25px;
+  border: 1px solid #663030;
+  border-radius: 3px;
+  color: #e2d3c0;
+  background: rgba(210, 59, 59, 0.11);
+  font: 700 7px/1 var(--font-mono);
+  letter-spacing: 0.6px;
+  cursor: pointer;
+}
+
+html[data-brand="project-v"] .v-module-disabled {
+  max-width: 90px;
+  text-align: right;
+}
+
+@media (max-width: 1180px) {
+  html[data-brand="project-v"] .panels-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  html[data-brand="project-v"] #deckSaveBtn,
+  html[data-brand="project-v"] #deckResetBtn,
+  html[data-brand="project-v"] #deckExportBtn,
+  html[data-brand="project-v"] #deckImportBtn {
+    display: none;
+  }
+
+  html[data-brand="project-v"] #deckUndoBtn,
+  html[data-brand="project-v"] #deckRedoBtn,
+  html[data-brand="project-v"] #moduleLibraryBtn,
+  html[data-brand="project-v"] #mapLayoutBtn {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 768px) {
+  html[data-brand="project-v"] .panels-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-brand="project-v"] .v-panel-drag-handle,
+  html[data-brand="project-v"] .v-panel-hide-btn,
+  html[data-brand="project-v"] .v-panel-corner-resize {
+    display: none !important;
+  }
+
+  html[data-brand="project-v"] .panel.deck-maximized {
+    inset: 6px !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   PROJECT V // PHASE FOUR — DOCKED COMMAND GRID
+   Collision-safe twelve-column layout. Panels occupy explicit cells and can
+   never float across the map in normal operating mode.
+   -------------------------------------------------------------------------- */
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .main-content {
+  display: block;
+  padding: 6px;
+  overflow: visible;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid {
+  --pv-dock-columns: 12;
+  --pv-dock-row: 72px;
+  --pv-dock-gap: 8px;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: calc(var(--pv-dock-row) * 7 + var(--pv-dock-gap) * 6);
+  display: grid !important;
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  grid-auto-rows: var(--pv-dock-row) !important;
+  grid-auto-flow: row !important;
+  gap: var(--pv-dock-gap) !important;
+  padding: 0 !important;
+  align-content: start;
+  align-items: stretch;
+  overflow: visible;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid > .panel {
+  position: relative !important;
+  inset: auto !important;
+  z-index: 2;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  align-self: stretch;
+  justify-self: stretch;
+  contain: layout paint style;
+  transition: border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid > .panel > .panel-content {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid > .map-section,
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid > .map-section.col-span-1,
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid > .map-section.col-span-2,
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid > .map-section.col-span-3 {
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  grid-column: var(--pv-inline-grid-column, auto);
+  grid-row: var(--pv-inline-grid-row, auto);
+  overflow: hidden;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .map-section.pinned {
+  position: relative !important;
+  top: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  right: auto !important;
+  z-index: 2 !important;
+  box-shadow: 0 7px 22px rgba(0, 0, 0, 0.2) !important;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .map-section .map-container {
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+/* The legacy Phase One–Three resize rails store incompatible spans. The dock
+   editor exposes one collision-aware corner handle instead. */
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panel > .panel-resize-handle,
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panel > .panel-col-resize-handle,
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panel > .map-resize-handle {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"].deck-edit-mode .panels-grid {
+  padding: 7px !important;
+  outline: 1px solid rgba(201, 53, 53, 0.34);
+  outline-offset: -1px;
+  background-color: rgba(20, 10, 10, 0.45);
+  background-image:
+    linear-gradient(rgba(191, 51, 51, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(191, 51, 51, 0.055) 1px, transparent 1px),
+    repeating-linear-gradient(135deg, rgba(126, 34, 34, 0.025) 0 8px, transparent 8px 16px);
+  background-size:
+    100% calc(var(--pv-dock-row) + var(--pv-dock-gap)),
+    calc((100% - (var(--pv-dock-gap) * 11)) / 12 + var(--pv-dock-gap)) 100%,
+    auto;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"].deck-edit-mode .panels-grid > .panel {
+  box-shadow: inset 0 0 0 1px rgba(195, 55, 55, 0.08), 0 7px 22px rgba(0, 0, 0, 0.26);
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"].deck-edit-mode .panels-grid > .panel:hover {
+  z-index: 5;
+  border-color: #7f3333;
+  box-shadow: inset 0 0 0 1px rgba(210, 59, 59, 0.18), 0 9px 28px rgba(0, 0, 0, 0.35);
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .v-dock-preview {
+  position: relative;
+  z-index: 20;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  pointer-events: none;
+  border: 2px dashed #d74444;
+  border-radius: 6px;
+  color: #e5c9ad;
+  background:
+    repeating-linear-gradient(135deg, rgba(211, 54, 54, 0.22) 0 9px, rgba(74, 20, 20, 0.12) 9px 18px),
+    rgba(18, 7, 7, 0.9);
+  box-shadow: inset 0 0 34px rgba(224, 52, 52, 0.13), 0 0 0 1px rgba(0, 0, 0, 0.65);
+  font: 800 9px/1 var(--font-mono);
+  letter-spacing: 1.15px;
+  text-align: center;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .v-dock-preview small {
+  color: #9e6b62;
+  font-size: 7px;
+  letter-spacing: 0.8px;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .v-deck-drag-source {
+  opacity: 0.2 !important;
+  filter: grayscale(0.65);
+  border-style: dashed !important;
+}
+
+html[data-brand="project-v"] .v-deck-drag-ghost {
+  position: fixed;
+  z-index: 2600;
+  min-width: 190px;
+  max-width: 420px;
+  padding: 11px 13px;
+  display: grid;
+  gap: 5px;
+  pointer-events: none;
+  border: 1px solid #a93b3b;
+  border-radius: 5px;
+  color: #e9ddce;
+  background: linear-gradient(145deg, rgba(28, 12, 12, 0.98), rgba(9, 6, 6, 0.98));
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.72), inset 0 0 0 1px rgba(210, 59, 59, 0.12);
+  font-family: var(--font-mono);
+}
+
+html[data-brand="project-v"] .v-deck-drag-ghost span {
+  color: #c94a4a;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+html[data-brand="project-v"] .v-deck-drag-ghost strong {
+  overflow: hidden;
+  font-size: 10px;
+  letter-spacing: 0.65px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .v-deck-drag-ghost small {
+  color: #796d64;
+  font-size: 7px;
+  letter-spacing: 0.65px;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panel.corner-resizing {
+  opacity: 0.35;
+  border-color: #d34848;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panel.deck-collapsed {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panel.deck-hidden {
+  display: none !important;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panel.deck-maximized {
+  position: fixed !important;
+  inset: 88px 10px 10px 10px !important;
+  z-index: 1900 !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] #deckPackBtn {
+  color: #a98d72;
+  border-color: #493129;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] #deckPackBtn:hover {
+  color: #f0deca;
+  border-color: #8d3b34;
+}
+
+@media (max-width: 1500px) {
+  html[data-brand="project-v"] #deckPackBtn {
+    display: none;
+  }
+}
+
+/* Narrow displays become a deliberate vertical operations stack. Explicit
+   desktop coordinates are ignored rather than creating hidden implicit cols. */
+@media (max-width: 1050px) {
+  html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px !important;
+    min-height: 0;
+  }
+
+  html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid > .panel,
+  html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid > .map-section {
+    width: 100% !important;
+    min-height: 250px !important;
+    height: min(62vh, 520px) !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+
+  html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panel.deck-collapsed {
+    min-height: 36px !important;
+    height: 36px !important;
+  }
+
+  html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .v-dock-preview,
+  html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .v-panel-drag-handle,
+  html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .v-panel-corner-resize {
+    display: none !important;
+  }
+}
+
+/* Inline dock coordinates are mirrored into custom properties so they retain
+   precedence even if the legacy Panel class restores old span classes on a
+   later animation frame. */
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid > .panel {
+  grid-column: var(--pv-dock-column) !important;
+  grid-row: var(--pv-dock-row) !important;
+}
+
+@media (max-width: 1050px) {
+  html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid > .panel,
+  html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid > .map-section {
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   PROJECT V // PHASE FOUR MAINTENANCE — WORKSPACE SCROLL FIX
+   The upstream application locks html/body/#app to the viewport and expects
+   .main-content to own vertical scrolling. The first docked-grid rule used
+   overflow: visible, which allowed the grid to grow outside the viewport while
+   the locked page had no scroll container. Restore .main-content as the deck's
+   vertical scroll surface while retaining the collision-safe dock grid.
+   -------------------------------------------------------------------------- */
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .main-content {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .panels-grid {
+  /* Let the grid establish the full document height inside .main-content. */
+  height: max-content;
+  padding-bottom: 18px !important;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .main-content::-webkit-scrollbar {
+  width: 9px;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .main-content::-webkit-scrollbar-track {
+  background: #080606;
+  border-left: 1px solid #1f1414;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .main-content::-webkit-scrollbar-thumb {
+  min-height: 42px;
+  border: 2px solid #080606;
+  border-radius: 8px;
+  background: #4b2929;
+}
+
+html[data-brand="project-v"] body[data-deck-engine="docked-v3"] .main-content::-webkit-scrollbar-thumb:hover {
+  background: #7c3636;
+}
+
+/* --------------------------------------------------------------------------
+   PROJECT V // PHASE FIVE — WORKSPACES, PRESETS, AND MODULE LIBRARY
+   -------------------------------------------------------------------------- */
+
+html[data-brand="project-v"] .v-preset-control {
+  position: relative;
+}
+
+html[data-brand="project-v"] .v-layout-preset-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 880;
+  width: 292px;
+  display: none;
+  padding: 6px;
+  border: 1px solid #5d2d2d;
+  border-radius: 5px;
+  background: rgba(10, 7, 7, 0.985);
+  box-shadow: 0 20px 58px rgba(0, 0, 0, 0.72), inset 0 0 0 1px rgba(210, 59, 59, 0.04);
+}
+
+html[data-brand="project-v"] .v-layout-preset-menu.open {
+  display: grid;
+  gap: 4px;
+}
+
+html[data-brand="project-v"] .v-layout-preset-menu button {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: #968b7e;
+  background: #0e0a0a;
+  text-align: left;
+  cursor: pointer;
+}
+
+html[data-brand="project-v"] .v-layout-preset-menu button:hover,
+html[data-brand="project-v"] .v-layout-preset-menu button.active {
+  color: #eadfce;
+  border-color: #6d3030;
+  background: rgba(130, 36, 36, 0.18);
+}
+
+html[data-brand="project-v"] .v-layout-preset-menu strong {
+  color: #d75a5a;
+  font-size: 8px;
+  letter-spacing: 0.9px;
+}
+
+html[data-brand="project-v"] .v-layout-preset-menu span {
+  color: #756d63;
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+html[data-brand="project-v"] body[data-deck-preset="custom"] #layoutPresetBtn {
+  color: #d9b35f;
+  border-color: rgba(217, 179, 95, 0.38);
+}
+
+html[data-brand="project-v"] .v-workspace-manager-nav {
+  color: #9a7d6c;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1750;
+  opacity: 0;
+  visibility: hidden;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(2px);
+  transition: opacity 150ms ease, visibility 150ms ease;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+html[data-brand="project-v"] .v-workspace-manager {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1760;
+  width: min(470px, 94vw);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(104%);
+  background:
+    linear-gradient(145deg, rgba(87, 24, 24, 0.08), transparent 32%),
+    #0b0808;
+  border-left: 1px solid #5e2d2d;
+  box-shadow: -22px 0 65px rgba(0, 0, 0, 0.72);
+  transition: transform 180ms ease;
+}
+
+html[data-brand="project-v"] .v-workspace-manager.open {
+  transform: translateX(0);
+}
+
+html[data-brand="project-v"] .v-workspace-manager-header {
+  min-height: 67px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 15px;
+  border-bottom: 1px solid #422323;
+  background: rgba(17, 11, 11, 0.97);
+}
+
+html[data-brand="project-v"] .v-workspace-manager-header div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-header span {
+  color: #754040;
+  font-size: 7px;
+  letter-spacing: 1.5px;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-header strong {
+  color: #eadfcd;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  letter-spacing: 1.8px;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-header button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #4b2828;
+  border-radius: 3px;
+  color: #b5a99a;
+  background: #0d0909;
+  cursor: pointer;
+}
+
+html[data-brand="project-v"] .v-workspace-manager > p {
+  margin: 0;
+  padding: 12px 15px;
+  color: #81776d;
+  border-bottom: 1px solid #261818;
+  font-size: 8px;
+  line-height: 1.65;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 9px;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-item {
+  width: 100%;
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  grid-template-areas:
+    "kind copy default"
+    "kind copy active";
+  align-items: center;
+  gap: 4px 9px;
+  margin-bottom: 6px;
+  padding: 9px 10px;
+  color: #a59a8c;
+  border: 1px solid #302020;
+  border-radius: 4px;
+  background: rgba(15, 10, 10, 0.9);
+  text-align: left;
+  cursor: pointer;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-item:hover,
+html[data-brand="project-v"] .v-workspace-manager-item.active {
+  border-color: #733333;
+  background: rgba(91, 28, 28, 0.14);
+}
+
+html[data-brand="project-v"] .v-workspace-kind {
+  grid-area: kind;
+  padding: 3px 4px;
+  color: #c75353;
+  border: 1px solid #532929;
+  border-radius: 2px;
+  font-size: 7px;
+  text-align: center;
+}
+
+html[data-brand="project-v"] .v-workspace-copy {
+  grid-area: copy;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+html[data-brand="project-v"] .v-workspace-copy strong {
+  overflow: hidden;
+  color: #e7ddce;
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .v-workspace-copy small {
+  overflow: hidden;
+  color: #71685f;
+  font-size: 7px;
+  letter-spacing: 0.6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .v-workspace-default,
+html[data-brand="project-v"] .v-workspace-active {
+  justify-self: end;
+  padding: 2px 5px;
+  border-radius: 2px;
+  font-size: 6px;
+  letter-spacing: 0.6px;
+}
+
+html[data-brand="project-v"] .v-workspace-default {
+  grid-area: default;
+  color: #d8b25e;
+  border: 1px solid rgba(216, 178, 94, 0.34);
+}
+
+html[data-brand="project-v"] .v-workspace-active {
+  grid-area: active;
+  color: #61c98a;
+  border: 1px solid rgba(97, 201, 138, 0.32);
+}
+
+html[data-brand="project-v"] .v-workspace-manager-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  padding: 10px;
+  border-top: 1px solid #352020;
+  background: #0d0909;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-actions button {
+  min-height: 34px;
+  color: #b7aa9b;
+  border: 1px solid #452828;
+  border-radius: 3px;
+  background: #130d0d;
+  font-size: 8px;
+  letter-spacing: 0.75px;
+  cursor: pointer;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-actions button:hover:not(:disabled) {
+  color: #f0e4d3;
+  border-color: #8c3838;
+  background: #211010;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-actions button.danger {
+  color: #d56868;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-actions button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+html[data-brand="project-v"] .v-module-library-tools {
+  padding: 0 12px 10px;
+  border-bottom: 1px solid #281919;
+}
+
+html[data-brand="project-v"] #moduleLibrarySearch {
+  width: 100%;
+  height: 34px;
+  margin-bottom: 8px;
+  padding: 0 10px;
+  color: #e0d5c5;
+  border: 1px solid #442727;
+  border-radius: 3px;
+  background: #090707;
+  font-size: 9px;
+}
+
+html[data-brand="project-v"] .v-module-library-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+html[data-brand="project-v"] .v-module-library-categories button {
+  padding: 5px 7px;
+  color: #776e64;
+  border: 1px solid #322020;
+  border-radius: 2px;
+  background: #0c0909;
+  font-size: 7px;
+  cursor: pointer;
+}
+
+html[data-brand="project-v"] .v-module-library-categories button:hover,
+html[data-brand="project-v"] .v-module-library-categories button.active {
+  color: #eadfce;
+  border-color: #793434;
+  background: rgba(117, 35, 35, 0.18);
+}
+
+html[data-brand="project-v"] .v-module-library-group {
+  margin-bottom: 10px;
+}
+
+html[data-brand="project-v"] .v-module-library-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 4px 6px;
+  color: #9e4a4a;
+  border-bottom: 1px solid #2b1a1a;
+  font-size: 7px;
+  letter-spacing: 1px;
+}
+
+html[data-brand="project-v"] .v-module-library-group-title small {
+  color: #675f57;
+}
+
+html[data-brand="project-v"] .v-module-library-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+html[data-brand="project-v"] .v-module-library-copy small {
+  color: #665e56;
+  font-size: 6px;
+  letter-spacing: 0.55px;
+}
+
+html[data-brand="project-v"] .v-module-library-item.needs-config {
+  border-left-color: #c19a4f;
+}
+
+html[data-brand="project-v"] .v-module-library-empty {
+  padding: 34px 12px;
+  color: #6f665d;
+  border: 1px dashed #382323;
+  text-align: center;
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+
+@media (max-width: 1510px) {
+  html[data-brand="project-v"] #layoutPresetBtn {
+    max-width: 118px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 1220px) {
+  html[data-brand="project-v"] .v-workspace-manager-nav {
+    display: none;
+  }
+
+  html[data-brand="project-v"] .v-preset-control {
+    display: none;
+  }
+}
+
+html[data-brand="project-v"] .v-module-library-list {
+  flex: 1 1 auto;
+}
+
+html[data-brand="project-v"] .v-workspace-manager-nav {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ================================================================
+   PROJECT V WATCHTOWER — PHASE SIX PLUGIN SYSTEM
+   ================================================================ */
+html[data-brand="project-v"] .v-plugin-manager-btn span {
+  display: inline-flex;
+  min-width: 18px;
+  justify-content: center;
+  margin-left: 4px;
+  padding: 1px 4px;
+  border: 1px solid rgba(163, 47, 47, 0.55);
+  color: #d9a0a0;
+  background: rgba(96, 14, 14, 0.28);
+  font-size: 8px;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3290;
+  background: rgba(0, 0, 0, 0.72);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+  backdrop-filter: blur(2px);
+}
+
+html[data-brand="project-v"] .v-plugin-manager-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+html[data-brand="project-v"] .v-plugin-manager {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 3300;
+  width: min(620px, 96vw);
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  overflow: hidden;
+  color: #e5ddd2;
+  background:
+    linear-gradient(180deg, rgba(116, 10, 10, 0.12), transparent 150px),
+    #0a0a0a;
+  border-left: 1px solid #5b1e1e;
+  box-shadow: -18px 0 60px rgba(0, 0, 0, 0.58);
+  transform: translateX(102%);
+  transition: transform 190ms ease;
+}
+
+html[data-brand="project-v"] .v-plugin-manager.open {
+  transform: translateX(0);
+}
+
+html[data-brand="project-v"] .v-plugin-manager-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #382020;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-header div {
+  display: grid;
+  gap: 4px;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-header span {
+  color: #a45151;
+  font-size: 9px;
+  letter-spacing: 0.19em;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-header strong {
+  color: #f0e6d9;
+  font-size: 17px;
+  letter-spacing: 0.13em;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-header button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #4b2525;
+  color: #d7b3ad;
+  background: #130b0b;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+html[data-brand="project-v"] .v-plugin-manager > p {
+  margin: 0;
+  color: #9a928c;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+html[data-brand="project-v"] .v-plugin-security-notice {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(139, 45, 45, 0.45);
+  background: rgba(76, 12, 12, 0.18);
+}
+
+html[data-brand="project-v"] .v-plugin-security-notice strong {
+  color: #d66e6e;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+}
+
+html[data-brand="project-v"] .v-plugin-security-notice span {
+  color: #a89d96;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-tools {
+  display: grid;
+  gap: 8px;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-tools input {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid #342929;
+  outline: none;
+  color: #eee4d7;
+  background: #080808;
+  font: 10px/1.2 var(--font-mono, monospace);
+  letter-spacing: 0.05em;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-tools input:focus {
+  border-color: #783131;
+  box-shadow: 0 0 0 1px rgba(132, 38, 38, 0.3);
+}
+
+html[data-brand="project-v"] .v-plugin-manager-toolbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-toolbar button,
+html[data-brand="project-v"] .v-plugin-manager-item-actions button {
+  min-height: 31px;
+  padding: 6px 9px;
+  border: 1px solid #422323;
+  color: #d9cbc0;
+  background: #120b0b;
+  cursor: pointer;
+  font: 9px/1.1 var(--font-mono, monospace);
+  letter-spacing: 0.08em;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-toolbar button:hover,
+html[data-brand="project-v"] .v-plugin-manager-item-actions button:hover {
+  border-color: #8b3232;
+  color: #fff2e5;
+  background: #211010;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-item-actions button.danger {
+  color: #dc8686;
+  border-color: rgba(151, 48, 48, 0.55);
+}
+
+html[data-brand="project-v"] .v-plugin-manager-status {
+  display: none;
+  padding: 8px 10px;
+  border: 1px solid #303030;
+  color: #a8a19b;
+  background: #0e0e0e;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-status.visible {
+  display: block;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-status.success {
+  border-color: #31543a;
+  color: #92c29d;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-status.error {
+  border-color: #713131;
+  color: #e18f8f;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-list {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding-right: 4px;
+  overflow-y: auto;
+  scrollbar-color: #5d2020 #0c0c0c;
+  scrollbar-width: thin;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-item {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #292929;
+  background: rgba(15, 15, 15, 0.95);
+}
+
+html[data-brand="project-v"] .v-plugin-manager-item.disabled {
+  opacity: 0.64;
+  border-style: dashed;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-item-head {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 10px;
+}
+
+html[data-brand="project-v"] .v-plugin-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #4b2424;
+  color: #d67272;
+  background: #160c0c;
+  font-size: 17px;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-item-head div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-item-head strong {
+  overflow: hidden;
+  color: #eee3d5;
+  font-size: 12px;
+  letter-spacing: 0.07em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-item-head small {
+  overflow: hidden;
+  color: #776f6a;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .v-plugin-state {
+  padding: 4px 6px;
+  border: 1px solid #3b593e;
+  color: #8fc097;
+  background: rgba(29, 67, 36, 0.22);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-item.disabled .v-plugin-state {
+  border-color: #514343;
+  color: #958888;
+  background: transparent;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-item > p {
+  margin: 0;
+  color: #aaa19a;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+html[data-brand="project-v"] .v-plugin-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+html[data-brand="project-v"] .v-plugin-meta-grid span,
+html[data-brand="project-v"] .v-plugin-permissions,
+html[data-brand="project-v"] .v-plugin-origins {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid #262626;
+  color: #a9a09a;
+  background: #0a0a0a;
+  font-size: 9px;
+}
+
+html[data-brand="project-v"] .v-plugin-meta-grid b,
+html[data-brand="project-v"] .v-plugin-permissions b,
+html[data-brand="project-v"] .v-plugin-origins b {
+  color: #704343;
+  font-size: 7px;
+  letter-spacing: 0.14em;
+}
+
+html[data-brand="project-v"] .v-plugin-permissions,
+html[data-brand="project-v"] .v-plugin-origins {
+  grid-template-columns: 85px 1fr;
+  align-items: start;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-empty {
+  min-height: 180px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px;
+  border: 1px dashed #343030;
+  color: #77706b;
+  text-align: center;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-empty strong {
+  color: #a98d84;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+html[data-brand="project-v"] .v-plugin-manager-empty span {
+  max-width: 370px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+html[data-brand="project-v"] .v-plugin-panel .panel-content {
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #090909;
+}
+
+html[data-brand="project-v"] .v-plugin-panel .panel-title::after {
+  content: "LOCAL PLUGIN";
+  margin-left: 8px;
+  padding: 2px 4px;
+  border: 1px solid rgba(139, 49, 49, 0.52);
+  color: #a96767;
+  font-size: 7px;
+  letter-spacing: 0.11em;
+  vertical-align: middle;
+}
+
+html[data-brand="project-v"] .v-plugin-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  display: block;
+  border: 0;
+  background: #090909;
+}
+
+html[data-brand="project-v"] .v-plugin-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 3900;
+  width: min(360px, calc(100vw - 36px));
+  display: grid;
+  gap: 4px;
+  padding: 11px 13px;
+  border: 1px solid #563030;
+  color: #ddd2c5;
+  background: rgba(15, 11, 11, 0.97);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.48);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+html[data-brand="project-v"] .v-plugin-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+html[data-brand="project-v"] .v-plugin-toast strong {
+  color: #cb6f6f;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+
+html[data-brand="project-v"] .v-plugin-toast span {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+html[data-brand="project-v"] .v-module-library-item[data-module-source="plugin"] {
+  border-color: #4a2828;
+}
+
+@media (max-width: 760px) {
+  html[data-brand="project-v"] .v-plugin-manager {
+    width: 100vw;
+    padding: 12px;
+  }
+  html[data-brand="project-v"] .v-plugin-manager-toolbar,
+  html[data-brand="project-v"] .v-plugin-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  html[data-brand="project-v"] .v-plugin-security-notice {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ================================================================
+   PROJECT V PHASE SEVEN — LOCAL AI COMMAND ASSISTANT
+   ================================================================ */
+html[data-brand="project-v"] .command-assistant-panel {
+  min-height: 360px;
+  background:
+    linear-gradient(180deg, rgba(55, 8, 12, 0.18), transparent 25%),
+    var(--v-panel, #090707);
+}
+
+html[data-brand="project-v"] .command-assistant-panel > .panel-content {
+  padding: 0;
+  overflow: hidden;
+  min-height: 0;
+}
+
+html[data-brand="project-v"] .v-assistant-shell {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(180px, 1fr) auto;
+  background:
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.009) 1px, transparent 1px),
+    radial-gradient(circle at 15% 0%, rgba(165, 20, 31, 0.08), transparent 32%),
+    #090707;
+  background-size: 32px 32px, 32px 32px, auto, auto;
+}
+
+html[data-brand="project-v"] .v-assistant-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-height: 42px;
+  padding: 6px 9px;
+  border-bottom: 1px solid rgba(167, 50, 55, 0.26);
+  background: rgba(10, 7, 7, 0.94);
+}
+
+html[data-brand="project-v"] .v-assistant-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 165px;
+  padding: 5px 8px;
+  border: 1px solid rgba(154, 52, 57, 0.36);
+  color: #baac9e;
+  font: 700 9px/1.1 var(--v-mono, monospace);
+  letter-spacing: .08em;
+}
+
+html[data-brand="project-v"] .v-assistant-status small {
+  margin-left: auto;
+  color: #746a62;
+  font-size: 7px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .v-assistant-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #b88220;
+  box-shadow: 0 0 8px currentColor;
+}
+html[data-brand="project-v"] .v-assistant-status.ready { color: #5ed58c; border-color: rgba(50, 166, 99, .45); }
+html[data-brand="project-v"] .v-assistant-status.ready .v-assistant-status-dot { background: #49d780; }
+html[data-brand="project-v"] .v-assistant-status.offline { color: #e35d5d; border-color: rgba(197, 45, 49, .48); }
+html[data-brand="project-v"] .v-assistant-status.offline .v-assistant-status-dot { background: #d63b42; }
+
+html[data-brand="project-v"] .v-assistant-context-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #766d64;
+  font: 700 8px/1 var(--v-mono, monospace);
+  letter-spacing: .09em;
+}
+
+html[data-brand="project-v"] .v-assistant-context-select,
+html[data-brand="project-v"] .v-assistant-tool-btn {
+  height: 27px;
+  border: 1px solid rgba(126, 57, 59, .45);
+  border-radius: 2px;
+  background: #0d0909;
+  color: #b8aba0;
+  font: 700 8px/1 var(--v-mono, monospace);
+  letter-spacing: .07em;
+}
+html[data-brand="project-v"] .v-assistant-context-select { padding: 0 24px 0 8px; }
+html[data-brand="project-v"] .v-assistant-tool-btn { padding: 0 9px; cursor: pointer; }
+html[data-brand="project-v"] .v-assistant-tool-btn:hover { color: #f0ded1; border-color: #a5343b; }
+html[data-brand="project-v"] .v-assistant-tool-btn.danger { margin-left: auto; color: #c05b5e; }
+
+html[data-brand="project-v"] .v-assistant-quick-actions {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  padding: 6px 9px;
+  border-bottom: 1px solid rgba(126, 51, 54, .22);
+  scrollbar-width: thin;
+}
+html[data-brand="project-v"] .v-assistant-quick-actions button {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 1px solid rgba(111, 58, 59, .42);
+  background: rgba(35, 13, 15, .7);
+  color: #a89a8f;
+  font: 700 8px/1 var(--v-mono, monospace);
+  letter-spacing: .08em;
+  cursor: pointer;
+}
+html[data-brand="project-v"] .v-assistant-quick-actions button:hover {
+  color: #f1ddd1;
+  border-color: #a83239;
+  background: rgba(78, 16, 22, .78);
+}
+
+html[data-brand="project-v"] .v-assistant-context-strip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  overflow-x: auto;
+  padding: 4px 9px;
+  border-bottom: 1px solid rgba(112, 46, 49, .2);
+  color: #776d66;
+  font: 600 7px/1 var(--v-mono, monospace);
+  white-space: nowrap;
+}
+html[data-brand="project-v"] .v-assistant-context-strip strong { color: #c04b50; letter-spacing: .09em; }
+html[data-brand="project-v"] .v-assistant-context-strip span {
+  padding: 3px 5px;
+  border: 1px solid rgba(103, 61, 60, .28);
+  background: rgba(21, 14, 14, .8);
+}
+
+html[data-brand="project-v"] .v-assistant-messages {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+  scroll-behavior: smooth;
+  scrollbar-color: #63252a #0a0707;
+  scrollbar-width: thin;
+}
+html[data-brand="project-v"] .v-assistant-messages::-webkit-scrollbar { width: 7px; }
+html[data-brand="project-v"] .v-assistant-messages::-webkit-scrollbar-thumb { background: #63252a; }
+
+html[data-brand="project-v"] .v-assistant-empty {
+  min-height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 22px;
+  text-align: center;
+  color: #81766d;
+}
+html[data-brand="project-v"] .v-assistant-empty strong {
+  color: #c7b5a8;
+  font: 700 11px/1 var(--v-display, monospace);
+  letter-spacing: .14em;
+}
+html[data-brand="project-v"] .v-assistant-empty p { max-width: 580px; margin: 0; font: 500 10px/1.55 var(--v-mono, monospace); }
+html[data-brand="project-v"] .v-assistant-empty .v-assistant-warning { color: #a84a4e; font-size: 8px; }
+html[data-brand="project-v"] .v-assistant-v-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #8b222a;
+  background: linear-gradient(135deg, #3d0a10, #0a0707);
+  color: #d49b91;
+  font: 700 25px/1 Georgia, serif;
+  box-shadow: 0 0 30px rgba(164, 28, 39, .18);
+}
+
+html[data-brand="project-v"] .v-assistant-message {
+  width: min(92%, 900px);
+  margin: 0 0 10px;
+  border: 1px solid rgba(105, 58, 58, .38);
+  background: rgba(14, 10, 10, .93);
+}
+html[data-brand="project-v"] .v-assistant-message.user { margin-left: auto; border-color: rgba(139, 92, 55, .38); background: rgba(27, 18, 13, .92); }
+html[data-brand="project-v"] .v-assistant-message.assistant { border-left: 2px solid #a62f36; }
+html[data-brand="project-v"] .v-assistant-message.streaming { opacity: .92; }
+html[data-brand="project-v"] .v-assistant-message header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(102, 50, 52, .28);
+  color: #b73940;
+  font: 700 8px/1 var(--v-mono, monospace);
+  letter-spacing: .1em;
+}
+html[data-brand="project-v"] .v-assistant-message.user header { color: #bd895a; }
+html[data-brand="project-v"] .v-assistant-message header time { color: #625b55; font-size: 7px; }
+html[data-brand="project-v"] .v-assistant-thinking { color: #d08a39; animation: v-assistant-pulse 1.1s ease-in-out infinite; }
+@keyframes v-assistant-pulse { 50% { opacity: .35; } }
+html[data-brand="project-v"] .v-assistant-message-body {
+  padding: 9px 10px;
+  color: #d1c4ba;
+  font: 500 10px/1.58 var(--v-mono, monospace);
+  overflow-wrap: anywhere;
+}
+html[data-brand="project-v"] .v-assistant-message-body p { margin: 0 0 .65em; }
+html[data-brand="project-v"] .v-assistant-message-body p:last-child { margin-bottom: 0; }
+html[data-brand="project-v"] .v-assistant-message-body ul,
+html[data-brand="project-v"] .v-assistant-message-body ol { margin: .4em 0 .6em 1.4em; padding: 0; }
+html[data-brand="project-v"] .v-assistant-message-body code { color: #e2a8a1; background: #190e0f; padding: 1px 3px; }
+html[data-brand="project-v"] .v-assistant-message-body pre { overflow-x: auto; padding: 8px; background: #080606; border: 1px solid #3d2425; }
+html[data-brand="project-v"] .v-assistant-message-body a { color: #d1666c; }
+html[data-brand="project-v"] .v-assistant-message-sources {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 5px 8px;
+  border-top: 1px solid rgba(102, 50, 52, .24);
+}
+html[data-brand="project-v"] .v-assistant-message-sources span {
+  flex: 0 0 auto;
+  padding: 3px 5px;
+  border: 1px solid rgba(107, 60, 60, .34);
+  color: #756b64;
+  font: 600 7px/1 var(--v-mono, monospace);
+}
+html[data-brand="project-v"] .v-assistant-system-notice {
+  margin: 6px auto;
+  padding: 7px 9px;
+  border: 1px dashed rgba(143, 83, 48, .45);
+  color: #b48a66;
+  font: 600 8px/1.4 var(--v-mono, monospace);
+  text-align: center;
+}
+
+html[data-brand="project-v"] .v-assistant-composer {
+  border-top: 1px solid rgba(157, 45, 51, .34);
+  background: rgba(8, 6, 6, .98);
+  padding: 8px;
+}
+html[data-brand="project-v"] .v-assistant-composer textarea {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  max-height: 160px;
+  resize: vertical;
+  border: 1px solid rgba(120, 56, 58, .5);
+  outline: none;
+  background: #0c0909;
+  color: #dfd1c6;
+  padding: 8px 9px;
+  font: 500 10px/1.45 var(--v-mono, monospace);
+  box-sizing: border-box;
+}
+html[data-brand="project-v"] .v-assistant-composer textarea:focus { border-color: #a63138; box-shadow: 0 0 0 1px rgba(167, 45, 52, .2); }
+html[data-brand="project-v"] .v-assistant-composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+html[data-brand="project-v"] .v-assistant-privacy {
+  margin-right: auto;
+  color: #5f5953;
+  font: 600 7px/1.2 var(--v-mono, monospace);
+  letter-spacing: .05em;
+}
+html[data-brand="project-v"] .v-assistant-send,
+html[data-brand="project-v"] .v-assistant-stop {
+  height: 28px;
+  min-width: 68px;
+  border: 1px solid #9b2c34;
+  background: #3d0d12;
+  color: #e7c6bf;
+  font: 700 8px/1 var(--v-mono, monospace);
+  letter-spacing: .1em;
+  cursor: pointer;
+}
+html[data-brand="project-v"] .v-assistant-stop { border-color: #9b6b2c; background: #3a260b; color: #e4c292; }
+html[data-brand="project-v"] .v-assistant-send:disabled { opacity: .35; cursor: default; }
+
+@media (max-width: 800px) {
+  html[data-brand="project-v"] .v-assistant-toolbar { align-items: stretch; }
+  html[data-brand="project-v"] .v-assistant-status { width: 100%; }
+  html[data-brand="project-v"] .v-assistant-tool-btn.danger { margin-left: 0; }
+  html[data-brand="project-v"] .v-assistant-message { width: 100%; }
+  html[data-brand="project-v"] .v-assistant-privacy { display: none; }
+}
+
+/* ================================================================
+   PROJECT V PHASE EIGHT — LOCAL DOCUMENT INTELLIGENCE
+   ================================================================ */
+html[data-brand="project-v"] .research-library-panel {
+  min-height: 390px;
+  background:
+    linear-gradient(180deg, rgba(71, 12, 16, .15), transparent 24%),
+    #090707;
+}
+
+html[data-brand="project-v"] .research-library-panel > .panel-content {
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+html[data-brand="project-v"] .research-shell {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  background:
+    linear-gradient(rgba(255,255,255,.011) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.008) 1px, transparent 1px),
+    radial-gradient(circle at 100% 0%, rgba(130, 20, 28, .08), transparent 32%),
+    #090707;
+  background-size: 28px 28px, 28px 28px, auto, auto;
+  color: #b5a79c;
+  font-family: var(--v-mono, monospace);
+}
+
+html[data-brand="project-v"] .research-shell.has-memory-editor { grid-template-rows: auto auto auto auto minmax(0, 1fr); }
+html[data-brand="project-v"] .research-shell.is-busy { pointer-events: none; opacity: .78; }
+
+html[data-brand="project-v"] .research-toolbar,
+html[data-brand="project-v"] .research-search-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(139, 50, 54, .25);
+  background: rgba(10, 7, 7, .96);
+}
+
+html[data-brand="project-v"] .research-tabs,
+html[data-brand="project-v"] .research-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+html[data-brand="project-v"] .research-actions { margin-left: auto; }
+
+html[data-brand="project-v"] .research-toolbar button,
+html[data-brand="project-v"] .research-result button,
+html[data-brand="project-v"] .research-document-tools button,
+html[data-brand="project-v"] .research-metadata-editor button,
+html[data-brand="project-v"] .research-memory-editor button {
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid rgba(122, 57, 59, .46);
+  border-radius: 2px;
+  background: #100b0b;
+  color: #ac9f95;
+  font: 700 7px/1 var(--v-mono, monospace);
+  letter-spacing: .08em;
+  cursor: pointer;
+}
+html[data-brand="project-v"] .research-toolbar button:hover,
+html[data-brand="project-v"] .research-result button:hover,
+html[data-brand="project-v"] .research-document-tools button:hover,
+html[data-brand="project-v"] .research-metadata-editor button:hover,
+html[data-brand="project-v"] .research-memory-editor button:hover {
+  color: #f0ddd1;
+  border-color: #a9353c;
+  background: #2a0e12;
+}
+html[data-brand="project-v"] .research-tabs button.active {
+  color: #f0d9cd;
+  border-color: #a72f37;
+  background: rgba(97, 18, 25, .62);
+}
+html[data-brand="project-v"] .research-tabs button span {
+  margin-left: 4px;
+  color: #d55b60;
+}
+html[data-brand="project-v"] .research-metadata-editor button.danger { color: #d3676a; }
+
+html[data-brand="project-v"] .research-search-row label {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: #796e66;
+  font: 700 7px/1 var(--v-mono, monospace);
+  letter-spacing: .1em;
+}
+html[data-brand="project-v"] .research-search-row input,
+html[data-brand="project-v"] .research-memory-editor input,
+html[data-brand="project-v"] .research-memory-editor textarea,
+html[data-brand="project-v"] .research-metadata-editor input,
+html[data-brand="project-v"] .research-memory-body {
+  min-width: 0;
+  border: 1px solid rgba(109, 61, 60, .42);
+  border-radius: 2px;
+  background: #0b0808;
+  color: #d1c0b5;
+  outline: none;
+  font: 500 9px/1.4 var(--v-mono, monospace);
+}
+html[data-brand="project-v"] .research-search-row input { height: 27px; padding: 0 9px; }
+html[data-brand="project-v"] .research-search-row input:focus,
+html[data-brand="project-v"] .research-memory-editor input:focus,
+html[data-brand="project-v"] .research-memory-editor textarea:focus,
+html[data-brand="project-v"] .research-metadata-editor input:focus,
+html[data-brand="project-v"] .research-memory-body:focus { border-color: #a9363d; box-shadow: 0 0 0 1px rgba(150, 43, 50, .17); }
+html[data-brand="project-v"] .research-context-count {
+  color: #58bd79;
+  font: 700 7px/1 var(--v-mono, monospace);
+  letter-spacing: .08em;
+  white-space: nowrap;
+}
+
+html[data-brand="project-v"] .research-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 4px 9px;
+  border-bottom: 1px solid rgba(110, 49, 51, .2);
+  color: #786d66;
+  font: 700 7px/1 var(--v-mono, monospace);
+  letter-spacing: .09em;
+}
+html[data-brand="project-v"] .research-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ac97b;
+  box-shadow: 0 0 8px rgba(74, 201, 123, .72);
+}
+
+html[data-brand="project-v"] .research-workbench {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(170px, 29%) minmax(0, 1fr);
+}
+
+html[data-brand="project-v"] .research-document-list {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border-right: 1px solid rgba(130, 51, 54, .25);
+  background: rgba(8, 6, 6, .88);
+}
+
+html[data-brand="project-v"] .research-drop-zone {
+  margin: 7px;
+  padding: 10px 7px;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  border: 1px dashed rgba(139, 66, 66, .55);
+  background: rgba(35, 13, 15, .36);
+  color: #9b8780;
+  cursor: pointer;
+  text-align: center;
+}
+html[data-brand="project-v"] .research-drop-zone strong { color: #bd5a5f; font-size: 8px; letter-spacing: .12em; }
+html[data-brand="project-v"] .research-drop-zone span { font-size: 6px; color: #6e625d; }
+html[data-brand="project-v"] .research-drop-zone.dragging { border-color: #e05258; background: rgba(105, 19, 27, .48); color: #f3d7cd; }
+
+html[data-brand="project-v"] .research-list-scroll,
+html[data-brand="project-v"] .research-main-view,
+html[data-brand="project-v"] .research-excerpts-grid {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #63252a #090707;
+}
+html[data-brand="project-v"] .research-list-scroll::-webkit-scrollbar,
+html[data-brand="project-v"] .research-main-view::-webkit-scrollbar,
+html[data-brand="project-v"] .research-excerpts-grid::-webkit-scrollbar,
+html[data-brand="project-v"] .research-document-preview::-webkit-scrollbar { width: 7px; height: 7px; }
+html[data-brand="project-v"] .research-list-scroll::-webkit-scrollbar-thumb,
+html[data-brand="project-v"] .research-main-view::-webkit-scrollbar-thumb,
+html[data-brand="project-v"] .research-excerpts-grid::-webkit-scrollbar-thumb,
+html[data-brand="project-v"] .research-document-preview::-webkit-scrollbar-thumb { background: #63252a; }
+
+html[data-brand="project-v"] .research-document-row {
+  width: 100%;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 29px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 7px;
+  border: 0;
+  border-bottom: 1px solid rgba(87, 55, 53, .25);
+  background: transparent;
+  color: #a99b91;
+  text-align: left;
+  cursor: pointer;
+}
+html[data-brand="project-v"] .research-document-row:hover { background: rgba(64, 19, 23, .35); }
+html[data-brand="project-v"] .research-document-row.active { background: rgba(102, 19, 27, .47); box-shadow: inset 2px 0 #c53b43; }
+html[data-brand="project-v"] .research-doc-kind {
+  display: grid;
+  place-items: center;
+  height: 23px;
+  border: 1px solid rgba(125, 64, 64, .45);
+  color: #c35c60;
+  font: 700 6px/1 var(--v-mono, monospace);
+}
+html[data-brand="project-v"] .research-doc-copy { min-width: 0; display: grid; gap: 4px; }
+html[data-brand="project-v"] .research-doc-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
+html[data-brand="project-v"] .research-doc-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #665e59; font-size: 6px; }
+html[data-brand="project-v"] .research-doc-context { color: #846d63; font: 700 6px/1 var(--v-mono, monospace); text-align: center; }
+html[data-brand="project-v"] .research-doc-context.enabled { color: #53cc7c; }
+html[data-brand="project-v"] .research-empty-list { padding: 18px 10px; color: #6c625c; font-size: 8px; text-align: center; }
+
+html[data-brand="project-v"] .research-main-view { padding: 9px; }
+html[data-brand="project-v"] .research-document-detail { min-height: 100%; display: grid; grid-template-rows: auto auto auto minmax(160px, 1fr); gap: 8px; }
+html[data-brand="project-v"] .research-document-detail > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(113, 53, 54, .28);
+}
+html[data-brand="project-v"] .research-document-detail > header > div { min-width: 0; flex: 1; }
+html[data-brand="project-v"] .research-document-detail header span { color: #bf494f; font-size: 7px; font-weight: 700; letter-spacing: .12em; }
+html[data-brand="project-v"] .research-document-detail h3 { margin: 5px 0 4px; color: #e0cdc0; font: 700 13px/1.2 var(--v-display, monospace); }
+html[data-brand="project-v"] .research-document-detail header small { color: #6f655e; font-size: 7px; }
+html[data-brand="project-v"] .research-context-toggle { display: flex; align-items: center; gap: 5px; color: #6f665f; font-size: 7px; white-space: nowrap; }
+html[data-brand="project-v"] .research-context-toggle input { accent-color: #b3333a; }
+
+html[data-brand="project-v"] .research-metadata-editor {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(130px, 1fr) auto auto;
+  gap: 6px;
+  align-items: end;
+}
+html[data-brand="project-v"] .research-metadata-editor label { display: grid; gap: 3px; color: #716760; font-size: 6px; letter-spacing: .08em; }
+html[data-brand="project-v"] .research-metadata-editor input { height: 27px; padding: 0 7px; }
+
+html[data-brand="project-v"] .research-document-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #786d66;
+  font-size: 7px;
+}
+html[data-brand="project-v"] .research-document-tools span { margin-right: auto; }
+
+html[data-brand="project-v"] .research-document-preview,
+html[data-brand="project-v"] .research-memory-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid rgba(91, 54, 53, .32);
+  background: rgba(7, 6, 6, .82);
+  color: #c1b2a8;
+  font: 500 9px/1.72 var(--v-mono, monospace);
+  white-space: pre-wrap;
+  user-select: text;
+}
+html[data-brand="project-v"] .research-document-preview::selection { background: #8f2630; color: #fff3e8; }
+html[data-brand="project-v"] .research-memory-body { width: 100%; resize: none; }
+
+html[data-brand="project-v"] .research-results { display: grid; gap: 8px; }
+html[data-brand="project-v"] .research-results > header { display: flex; align-items: baseline; gap: 8px; padding: 2px 2px 7px; border-bottom: 1px solid rgba(105, 50, 51, .28); }
+html[data-brand="project-v"] .research-results > header strong { color: #c4484e; font-size: 8px; letter-spacing: .1em; }
+html[data-brand="project-v"] .research-results > header span { color: #6f655e; font-size: 7px; }
+html[data-brand="project-v"] .research-result {
+  padding: 9px;
+  border: 1px solid rgba(105, 54, 54, .36);
+  background: rgba(14, 10, 10, .9);
+}
+html[data-brand="project-v"] .research-result > header { display: flex; align-items: center; gap: 8px; }
+html[data-brand="project-v"] .research-result > header span { color: #bd474d; font-size: 6px; letter-spacing: .1em; }
+html[data-brand="project-v"] .research-result > header strong { color: #d6c3b7; font-size: 9px; }
+html[data-brand="project-v"] .research-result p { margin: 8px 0; color: #a99c93; font-size: 8px; line-height: 1.55; }
+html[data-brand="project-v"] .research-result footer { display: flex; gap: 5px; }
+
+html[data-brand="project-v"] .research-empty-state {
+  min-height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 7px;
+  padding: 20px;
+  text-align: center;
+  color: #716760;
+}
+html[data-brand="project-v"] .research-empty-state.standalone { min-height: 280px; }
+html[data-brand="project-v"] .research-empty-state > div { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid #84232a; color: #bd5a5e; font: 700 21px/1 Georgia, serif; }
+html[data-brand="project-v"] .research-empty-state strong { color: #b7a69b; font-size: 9px; letter-spacing: .13em; }
+html[data-brand="project-v"] .research-empty-state p { max-width: 480px; margin: 0; font-size: 8px; line-height: 1.55; }
+
+html[data-brand="project-v"] .research-excerpts-grid {
+  padding: 9px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  align-content: start;
+  gap: 8px;
+}
+html[data-brand="project-v"] .research-excerpt-card {
+  min-height: 150px;
+  padding: 9px;
+  border: 1px solid rgba(109, 57, 57, .37);
+  background: rgba(15, 10, 10, .92);
+}
+html[data-brand="project-v"] .research-excerpt-card > header { display: flex; justify-content: space-between; align-items: center; }
+html[data-brand="project-v"] .research-excerpt-card > header label { display: flex; gap: 4px; align-items: center; color: #55bd79; font-size: 6px; }
+html[data-brand="project-v"] .research-excerpt-card > header input { accent-color: #b9343b; }
+html[data-brand="project-v"] .research-excerpt-card > header button { border: 0; background: transparent; color: #9b4b4f; cursor: pointer; }
+html[data-brand="project-v"] .research-excerpt-card > span { display: block; margin-top: 8px; color: #bb484e; font-size: 6px; letter-spacing: .08em; }
+html[data-brand="project-v"] .research-excerpt-card h3 { margin: 5px 0 7px; color: #d4c1b5; font-size: 9px; }
+html[data-brand="project-v"] .research-excerpt-card p { margin: 0 0 8px; color: #a79a91; font-size: 8px; line-height: 1.5; white-space: pre-wrap; }
+html[data-brand="project-v"] .research-excerpt-card small { color: #665e59; font-size: 6px; }
+
+html[data-brand="project-v"] .research-memory-editor {
+  z-index: 2;
+  margin: 8px;
+  padding: 9px;
+  display: grid;
+  gap: 7px;
+  border: 1px solid #8c2930;
+  background: #100a0b;
+  box-shadow: 0 12px 38px rgba(0,0,0,.48);
+}
+html[data-brand="project-v"] .research-memory-editor header { display: flex; gap: 8px; align-items: baseline; }
+html[data-brand="project-v"] .research-memory-editor header strong { color: #cf555a; font-size: 8px; letter-spacing: .12em; }
+html[data-brand="project-v"] .research-memory-editor header span { color: #70655e; font-size: 7px; }
+html[data-brand="project-v"] .research-memory-editor input { height: 28px; padding: 0 8px; }
+html[data-brand="project-v"] .research-memory-editor textarea { padding: 8px; resize: vertical; }
+html[data-brand="project-v"] .research-memory-editor > div { display: flex; gap: 6px; justify-content: flex-end; }
+
+@media (max-width: 900px) {
+  html[data-brand="project-v"] .research-toolbar { align-items: flex-start; flex-direction: column; }
+  html[data-brand="project-v"] .research-actions { margin-left: 0; flex-wrap: wrap; }
+  html[data-brand="project-v"] .research-workbench { grid-template-columns: 1fr; }
+  html[data-brand="project-v"] .research-document-list { max-height: 220px; border-right: 0; border-bottom: 1px solid rgba(130, 51, 54, .25); }
+  html[data-brand="project-v"] .research-metadata-editor { grid-template-columns: 1fr 1fr; }
+}
+
+/* ============================================================
+   Phase Nine — Operations, Alerts, Watchlists, and Timelines
+   ============================================================ */
+.v-operations-panel .panel-content {
+  padding: 0;
+  overflow: auto;
+  background:
+    linear-gradient(180deg, rgba(83, 9, 12, 0.08), transparent 120px),
+    #080606;
+}
+
+.v-ops-toolbar,
+.v-source-health-toolbar,
+.v-timeline-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(151, 44, 44, 0.28);
+  background: rgba(13, 9, 9, 0.94);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.v-ops-summary,
+.v-ops-filter-row,
+.v-timeline-controls,
+.v-source-health-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.v-ops-summary span {
+  color: #8d7c72;
+}
+
+.v-ops-summary strong {
+  color: #e7d8c8;
+}
+
+.v-ops-summary .critical,
+.v-ops-summary .critical strong {
+  color: #ef5555;
+}
+
+.v-ops-filter-row button,
+.v-alert-actions button,
+.v-timeline-controls button,
+.v-source-health-toolbar button,
+.v-ops-form button,
+.v-rule-item button,
+.v-watch-item button {
+  border: 1px solid rgba(130, 56, 50, 0.58);
+  background: #0d0909;
+  color: #bca99a;
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.v-ops-filter-row button:hover,
+.v-alert-actions button:hover,
+.v-timeline-controls button:hover,
+.v-source-health-toolbar button:hover,
+.v-ops-form button:hover {
+  color: #f6e7d8;
+  border-color: #a73434;
+  background: rgba(107, 19, 22, 0.34);
+}
+
+.v-ops-filter-row button.active {
+  color: #fff0df;
+  background: #67151a;
+  border-color: #c03e42;
+}
+
+.v-alert-list,
+.v-rule-list,
+.v-watch-list,
+.v-timeline-list,
+.v-source-health-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.v-alert-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 10px 10px 10px 0;
+  border-bottom: 1px solid rgba(107, 53, 48, 0.22);
+  background: rgba(17, 11, 11, 0.7);
+}
+
+.v-alert-item:hover {
+  background: rgba(36, 15, 16, 0.75);
+}
+
+.v-alert-item.status-acknowledged {
+  opacity: 0.6;
+}
+
+.v-alert-item.status-resolved {
+  opacity: 0.36;
+}
+
+.v-alert-accent {
+  background: #747474;
+}
+
+.v-alert-item.severity-watch .v-alert-accent { background: #d5b04c; }
+.v-alert-item.severity-elevated .v-alert-accent { background: #df812e; }
+.v-alert-item.severity-high .v-alert-accent { background: #dc3e3e; }
+.v-alert-item.severity-critical .v-alert-accent { background: #ff2029; box-shadow: 0 0 10px rgba(255, 32, 41, 0.55); }
+
+.v-alert-main {
+  min-width: 0;
+}
+
+.v-alert-main > strong,
+.v-rule-item strong,
+.v-watch-item strong,
+.v-timeline-body > strong,
+.v-source-health-item strong {
+  display: block;
+  color: #eee0d0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.v-alert-main p,
+.v-timeline-body p,
+.v-source-health-item p {
+  margin: 5px 0 0;
+  color: #9f8e82;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.v-alert-main small,
+.v-rule-item small,
+.v-watch-item small,
+.v-source-health-item small {
+  display: block;
+  margin-top: 5px;
+  color: #655c55;
+  font-size: 8px;
+  letter-spacing: 0.07em;
+}
+
+.v-alert-meta {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+  color: #786a61;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+
+.v-alert-meta time {
+  margin-left: auto;
+}
+
+.v-severity-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid currentColor;
+  padding: 2px 4px;
+  font-size: 7px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+}
+
+.v-severity-badge.info { color: #719ec0; }
+.v-severity-badge.watch { color: #d3b65c; }
+.v-severity-badge.elevated { color: #dc8a3b; }
+.v-severity-badge.high { color: #e25151; }
+.v-severity-badge.critical { color: #ff2731; background: rgba(180, 20, 28, 0.13); }
+
+.v-alert-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 62px;
+}
+
+.v-ops-empty {
+  display: grid;
+  min-height: 90px;
+  place-items: center;
+  color: #625750;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+}
+
+.v-ops-form {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border-bottom: 1px solid rgba(128, 45, 42, 0.28);
+  background: rgba(18, 10, 10, 0.88);
+}
+
+.v-ops-form input,
+.v-ops-form textarea,
+.v-ops-form select,
+.v-notification-settings select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(118, 64, 57, 0.48);
+  background: #080606;
+  color: #e3d5c8;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  outline: none;
+}
+
+.v-ops-form textarea {
+  resize: vertical;
+}
+
+.v-ops-form input:focus,
+.v-ops-form textarea:focus,
+.v-ops-form select:focus {
+  border-color: #a93238;
+  box-shadow: 0 0 0 1px rgba(169, 50, 56, 0.24);
+}
+
+.v-form-row {
+  display: flex;
+  gap: 7px;
+}
+
+.v-form-row.split > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.v-form-row.three > * {
+  flex: 1 1 0;
+}
+
+.v-notification-settings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(118, 54, 50, 0.28);
+  color: #8f8076;
+  font-size: 8px;
+  letter-spacing: 0.07em;
+}
+
+.v-notification-settings strong {
+  color: #d6c6b6;
+  margin-right: 4px;
+}
+
+.v-notification-settings label {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.v-notification-settings select {
+  width: auto;
+  padding: 4px 6px;
+}
+
+.v-rule-item,
+.v-watch-item {
+  border-bottom: 1px solid rgba(105, 53, 48, 0.22);
+  padding: 9px 10px;
+  background: rgba(12, 8, 8, 0.7);
+}
+
+.v-rule-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.v-rule-item.disabled,
+.v-watch-item.disabled {
+  opacity: 0.48;
+}
+
+.v-watch-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.v-watch-heading strong {
+  flex: 1;
+}
+
+.v-watch-item p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 7px 0 0 20px;
+}
+
+.v-watch-item p span {
+  border: 1px solid rgba(111, 68, 60, 0.48);
+  padding: 2px 5px;
+  color: #9d8b7d;
+  font-size: 8px;
+}
+
+.v-watch-item > small {
+  margin-left: 20px;
+}
+
+.v-timeline-controls {
+  justify-content: flex-end;
+}
+
+.v-timeline-item {
+  display: grid;
+  grid-template-columns: 130px 11px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid rgba(102, 52, 48, 0.22);
+  position: relative;
+}
+
+.v-timeline-item > time {
+  color: #81736a;
+  font-size: 8px;
+  text-align: right;
+  padding-top: 3px;
+}
+
+.v-timeline-marker {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-top: 4px;
+  background: #8b2a2e;
+  box-shadow: 0 0 0 3px rgba(139, 42, 46, 0.15);
+}
+
+.v-timeline-item:not(:last-child) .v-timeline-marker::after {
+  content: '';
+  display: block;
+  width: 1px;
+  height: calc(100% + 20px);
+  margin: 8px auto 0;
+  background: rgba(131, 51, 51, 0.4);
+}
+
+.v-timeline-item.confidence-confirmed .v-timeline-marker { background: #4fa875; }
+.v-timeline-item.confidence-disputed .v-timeline-marker { background: #e04c4c; }
+.v-timeline-item.confidence-unverified .v-timeline-marker { background: #d19b39; }
+
+.v-timeline-body > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+  color: #7d6d64;
+  font-size: 8px;
+  letter-spacing: 0.07em;
+}
+
+.v-timeline-body .confidence {
+  border: 1px solid rgba(124, 75, 68, 0.55);
+  padding: 1px 4px;
+}
+
+.v-timeline-body a {
+  display: inline-block;
+  margin-top: 6px;
+  color: #cf7777;
+  font-size: 8px;
+  text-decoration: none;
+}
+
+.v-timeline-item > button {
+  align-self: start;
+  border: 0;
+  background: transparent;
+  color: #6a5550;
+  cursor: pointer;
+}
+
+.v-source-health-toolbar > div {
+  flex: 1;
+  color: #928178;
+}
+
+.v-source-health-toolbar strong {
+  color: #e4d4c5;
+}
+
+.v-source-health-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: start;
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(104, 53, 48, 0.22);
+}
+
+.v-source-health-item > span:last-child {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: #85766d;
+}
+
+.v-health-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 3px;
+  border-radius: 50%;
+  background: #777;
+}
+
+.v-source-health-item.state-online .v-health-dot { background: #45aa70; box-shadow: 0 0 7px rgba(69, 170, 112, 0.5); }
+.v-source-health-item.state-degraded .v-health-dot { background: #d49936; }
+.v-source-health-item.state-offline .v-health-dot { background: #d33d43; }
+.v-source-health-item.state-missing .v-health-dot { background: #c97439; }
+.v-source-health-item.state-disabled .v-health-dot { background: #56504c; }
+.v-source-health-item.state-online > span:last-child { color: #65bd83; }
+.v-source-health-item.state-degraded > span:last-child,
+.v-source-health-item.state-missing > span:last-child { color: #d49a4f; }
+.v-source-health-item.state-offline > span:last-child { color: #e04b50; }
+
+@media (max-width: 760px) {
+  .v-alert-item {
+    grid-template-columns: 3px minmax(0, 1fr);
+  }
+  .v-alert-actions {
+    grid-column: 2;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .v-timeline-item {
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+  }
+  .v-timeline-item > time {
+    grid-column: 2;
+    text-align: left;
+  }
+  .v-timeline-marker {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+  .v-timeline-body {
+    grid-column: 2;
+  }
+  .v-form-row.split,
+  .v-form-row.three {
+    flex-direction: column;
+  }
+}
+
+.v-operations-alert-btn span {
+  display: inline-flex;
+  min-width: 16px;
+  justify-content: center;
+  color: #9d877b;
+}
+
+.v-operations-alert-btn.has-alerts {
+  border-color: rgba(178, 74, 50, 0.76) !important;
+  color: #d69c78 !important;
+}
+
+.v-operations-alert-btn.has-critical {
+  border-color: #c3333a !important;
+  color: #ff6a6f !important;
+  box-shadow: inset 0 0 12px rgba(164, 31, 38, 0.14), 0 0 8px rgba(164, 31, 38, 0.12);
+}
+
+.v-operations-alert-btn.has-critical span {
+  color: #ff6a6f;
+}
+
+/* ================================================================
+   PROJECT V PHASE TEN — HARDENED DESKTOP PLATFORM
+   ================================================================ */
+html[data-brand="project-v"] .v-security-center-btn {
+  border-color: rgba(130, 42, 42, .7);
+  background: linear-gradient(180deg, rgba(41, 12, 12, .95), rgba(17, 8, 8, .95));
+}
+html[data-brand="project-v"] .v-security-center-btn > span {
+  margin-left: 5px;
+  padding: 2px 5px;
+  border: 1px solid rgba(255,255,255,.12);
+  font-size: 8px;
+  letter-spacing: .08em;
+  color: #b9ada3;
+}
+html[data-brand="project-v"] .v-security-center-btn.armed > span { color: #9dcc9a; border-color: rgba(92, 148, 88, .45); }
+html[data-brand="project-v"] .v-security-center-btn.restricted { border-color: #ba3c3c; box-shadow: inset 0 0 18px rgba(126, 16, 16, .2); }
+html[data-brand="project-v"] .v-security-center-btn.restricted > span { color: #ef9a91; border-color: rgba(190, 64, 64, .55); }
+
+html[data-brand="project-v"] .v-security-center-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 8990;
+  background: rgba(0, 0, 0, .66);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;
+  backdrop-filter: blur(3px);
+}
+html[data-brand="project-v"] .v-security-center-backdrop.open { opacity: 1; pointer-events: auto; }
+html[data-brand="project-v"] .v-security-center {
+  position: fixed;
+  z-index: 9000;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(980px, 94vw);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  transform: translateX(104%);
+  transition: transform .22s ease;
+  border-left: 1px solid #7d2525;
+  background:
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.014) 1px, transparent 1px),
+    radial-gradient(circle at 100% 0, rgba(121, 20, 20, .18), transparent 40%),
+    #090808;
+  background-size: 28px 28px, 28px 28px, auto, auto;
+  box-shadow: -24px 0 60px rgba(0,0,0,.65);
+  color: #e7ded4;
+}
+html[data-brand="project-v"] .v-security-center.open { transform: translateX(0); }
+html[data-brand="project-v"] .v-security-center-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 72px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #4e1e1e;
+  background: rgba(12, 9, 9, .94);
+}
+html[data-brand="project-v"] .v-security-center-header div { display: grid; gap: 4px; }
+html[data-brand="project-v"] .v-security-center-header span,
+html[data-brand="project-v"] .v-security-section-title span {
+  font-size: 9px;
+  letter-spacing: .22em;
+  color: #b04b4b;
+}
+html[data-brand="project-v"] .v-security-center-header strong { font-size: 18px; letter-spacing: .14em; }
+html[data-brand="project-v"] .v-security-center-header button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #572323;
+  background: #160b0b;
+  color: #ddcfc2;
+  font-size: 24px;
+  cursor: pointer;
+}
+html[data-brand="project-v"] #securityCenterContent {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  overflow: hidden;
+}
+html[data-brand="project-v"] .v-security-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 10px;
+  overflow-y: auto;
+  border-right: 1px solid #2e1b1b;
+  background: rgba(8, 7, 7, .88);
+}
+html[data-brand="project-v"] .v-security-tabs button {
+  min-height: 39px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #8e8580;
+  text-align: left;
+  font: 600 10px/1.2 var(--font-mono, monospace);
+  letter-spacing: .11em;
+  cursor: pointer;
+}
+html[data-brand="project-v"] .v-security-tabs button:hover { color: #ded3c7; background: rgba(100, 28, 28, .12); }
+html[data-brand="project-v"] .v-security-tabs button.active { color: #f0ddd2; border-color: #6a2424; background: linear-gradient(90deg, rgba(115, 25, 25, .26), transparent); }
+html[data-brand="project-v"] .v-security-tab-body { min-width: 0; overflow-y: auto; padding: 18px; }
+html[data-brand="project-v"] .v-security-section { display: grid; gap: 16px; }
+html[data-brand="project-v"] .v-security-section > p { margin: 0; color: #958c86; font-size: 11px; line-height: 1.65; }
+html[data-brand="project-v"] .v-security-section-title { display: grid; gap: 5px; padding-bottom: 12px; border-bottom: 1px solid #312020; }
+html[data-brand="project-v"] .v-security-section-title strong { font-size: 18px; letter-spacing: .1em; }
+html[data-brand="project-v"] .v-security-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 10px;
+}
+html[data-brand="project-v"] .v-security-status-grid article,
+html[data-brand="project-v"] .v-backup-grid article,
+html[data-brand="project-v"] .v-communications-explainer article {
+  padding: 14px;
+  border: 1px solid #302323;
+  background: rgba(15, 13, 13, .9);
+}
+html[data-brand="project-v"] .v-security-status-grid article > span { display: block; color: #8c817a; font-size: 9px; letter-spacing: .14em; }
+html[data-brand="project-v"] .v-security-status-grid article > strong { display: block; margin: 7px 0; font-size: 13px; letter-spacing: .08em; }
+html[data-brand="project-v"] .v-security-status-grid article > strong.good { color: #9bc095; }
+html[data-brand="project-v"] .v-security-status-grid article > strong.warn { color: #d4937d; }
+html[data-brand="project-v"] .v-security-status-grid article > p { margin: 0; color: #807873; font-size: 10px; line-height: 1.5; }
+html[data-brand="project-v"] .v-security-actions,
+html[data-brand="project-v"] .v-backup-restore-row,
+html[data-brand="project-v"] .v-source-browser-actions,
+html[data-brand="project-v"] .v-communication-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+html[data-brand="project-v"] .v-security-actions button,
+html[data-brand="project-v"] .v-security-section button,
+html[data-brand="project-v"] .v-communications-panel button,
+html[data-brand="project-v"] .v-source-browser-panel button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid #4d2828;
+  background: #160d0d;
+  color: #ddd0c5;
+  font: 600 9px/1 var(--font-mono, monospace);
+  letter-spacing: .08em;
+  cursor: pointer;
+}
+html[data-brand="project-v"] .v-security-actions button:hover,
+html[data-brand="project-v"] .v-security-section button:hover,
+html[data-brand="project-v"] .v-communications-panel button:hover,
+html[data-brand="project-v"] .v-source-browser-panel button:hover { border-color: #a43b3b; background: #261010; }
+html[data-brand="project-v"] .v-security-section button.primary { border-color: #a83737; background: linear-gradient(180deg, #4a1515, #260e0e); }
+html[data-brand="project-v"] .v-security-section button.wide { width: 100%; }
+html[data-brand="project-v"] button.danger { color: #ef9c91 !important; border-color: #7b2929 !important; }
+html[data-brand="project-v"] .v-security-note,
+html[data-brand="project-v"] .v-source-browser-warning,
+html[data-brand="project-v"] .v-communications-banner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 11px 12px;
+  border: 1px solid #4d2424;
+  background: rgba(74, 19, 19, .12);
+  color: #8f8680;
+  font-size: 10px;
+  line-height: 1.5;
+}
+html[data-brand="project-v"] .v-security-note strong,
+html[data-brand="project-v"] .v-source-browser-warning strong { flex: 0 0 auto; color: #d99383; letter-spacing: .08em; }
+html[data-brand="project-v"] .v-security-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+html[data-brand="project-v"] .v-security-form-grid label,
+html[data-brand="project-v"] .v-origin-list { display: grid; gap: 7px; color: #9c9189; font-size: 9px; letter-spacing: .1em; }
+html[data-brand="project-v"] .v-security-form-grid label.checkbox { display: flex; align-items: center; gap: 8px; padding-top: 22px; }
+html[data-brand="project-v"] .v-security-form-grid select,
+html[data-brand="project-v"] .v-security-section input,
+html[data-brand="project-v"] .v-security-section textarea,
+html[data-brand="project-v"] .v-communications-form input,
+html[data-brand="project-v"] .v-source-browser-shell input,
+html[data-brand="project-v"] .v-source-browser-shell textarea {
+  width: 100%;
+  border: 1px solid #342727;
+  background: #080707;
+  color: #e2d7cd;
+  padding: 9px 10px;
+  font: 11px/1.35 var(--font-mono, monospace);
+  outline: none;
+}
+html[data-brand="project-v"] .v-security-section input:focus,
+html[data-brand="project-v"] .v-security-section textarea:focus,
+html[data-brand="project-v"] .v-communications-form input:focus,
+html[data-brand="project-v"] .v-source-browser-shell input:focus,
+html[data-brand="project-v"] .v-source-browser-shell textarea:focus { border-color: #8e3232; }
+html[data-brand="project-v"] .v-pin-control { display: grid; grid-template-columns: minmax(180px, 1.5fr) 1fr 1fr auto auto; gap: 8px; align-items: center; }
+html[data-brand="project-v"] .v-pin-control > div { display: grid; gap: 4px; }
+html[data-brand="project-v"] .v-pin-control > div span { color: #807771; font-size: 9px; }
+html[data-brand="project-v"] .v-backup-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+html[data-brand="project-v"] .v-backup-grid article { display: grid; gap: 10px; }
+html[data-brand="project-v"] .v-backup-grid article span { color: #837a74; font-size: 10px; line-height: 1.45; min-height: 44px; }
+html[data-brand="project-v"] .v-security-meta { font-size: 9px !important; letter-spacing: .08em; }
+html[data-brand="project-v"] .v-security-status { min-height: 20px; color: #9cc498; font-size: 10px; letter-spacing: .06em; }
+html[data-brand="project-v"] .v-security-status.error { color: #e1776f; }
+html[data-brand="project-v"] .v-network-modes { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+html[data-brand="project-v"] .v-network-modes label { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; padding: 12px; border: 1px solid #302323; background: #0d0b0b; cursor: pointer; }
+html[data-brand="project-v"] .v-network-modes label.active { border-color: #8c3232; background: rgba(96, 21, 21, .18); }
+html[data-brand="project-v"] .v-network-modes input { grid-row: 1 / span 2; width: auto; }
+html[data-brand="project-v"] .v-network-modes strong { font-size: 10px; }
+html[data-brand="project-v"] .v-network-modes span { color: #817872; font-size: 9px; line-height: 1.4; }
+html[data-brand="project-v"] .v-network-audit { display: grid; gap: 5px; }
+html[data-brand="project-v"] .v-network-audit > strong { font-size: 10px; letter-spacing: .12em; }
+html[data-brand="project-v"] .v-network-audit > span { color: #77706b; font-size: 9px; }
+html[data-brand="project-v"] .v-network-audit > div { display: grid; grid-template-columns: 80px 70px minmax(0,1fr); gap: 8px; align-items: center; padding: 7px 8px; border: 1px solid #291f1f; font-size: 9px; }
+html[data-brand="project-v"] .v-network-audit code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #b9aca3; }
+html[data-brand="project-v"] .v-plugin-permission-list { display: grid; gap: 8px; }
+html[data-brand="project-v"] .v-plugin-permission-list article { display: grid; grid-template-columns: 180px minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid #302323; background: #0e0c0c; }
+html[data-brand="project-v"] .v-plugin-permission-list article > div:first-child { display: grid; gap: 4px; }
+html[data-brand="project-v"] .v-plugin-permission-list article > div:first-child span { color: #7f7670; font-size: 9px; }
+html[data-brand="project-v"] .v-plugin-permission-grid { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+html[data-brand="project-v"] .v-plugin-permission-grid label { color: #a79b92; font-size: 9px; }
+html[data-brand="project-v"] .v-diagnostics-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; }
+html[data-brand="project-v"] .v-diagnostics-grid div { display: grid; gap: 5px; padding: 10px; border: 1px solid #2e2222; background: #0d0b0b; }
+html[data-brand="project-v"] .v-diagnostics-grid span { color: #7f7670; font-size: 8px; letter-spacing: .12em; }
+html[data-brand="project-v"] .v-diagnostic-output { min-height: 260px; max-height: 440px; overflow: auto; margin: 0; padding: 12px; border: 1px solid #2b2424; background: #060606; color: #b7ada5; font: 10px/1.5 var(--font-mono, monospace); white-space: pre-wrap; }
+html[data-brand="project-v"] .v-communications-explainer { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+html[data-brand="project-v"] .v-communications-explainer article { display: grid; gap: 9px; }
+html[data-brand="project-v"] .v-communications-explainer article span { color: #877e78; font-size: 10px; line-height: 1.5; }
+
+html[data-brand="project-v"] .v-project-lock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: none;
+  place-items: center;
+  background:
+    radial-gradient(circle at center, rgba(104, 18, 18, .24), transparent 42%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 4px),
+    rgba(3,3,3,.985);
+  backdrop-filter: blur(18px);
+}
+html[data-brand="project-v"] .v-project-lock-overlay.active { display: grid; }
+html[data-brand="project-v"] .v-lock-card { width: min(460px, 88vw); display: grid; justify-items: center; gap: 12px; padding: 34px; border: 1px solid #6d2525; background: rgba(9,7,7,.96); box-shadow: 0 0 80px rgba(130,20,20,.18); text-align: center; }
+html[data-brand="project-v"] .v-lock-mark { width: 78px; height: 78px; display: grid; place-items: center; border: 2px solid #9c3131; border-radius: 50%; color: #e4d5c7; font: 700 48px/1 Georgia, serif; text-shadow: 0 0 18px rgba(190,45,45,.45); }
+html[data-brand="project-v"] .v-lock-card > span { color: #a74747; font-size: 10px; letter-spacing: .2em; }
+html[data-brand="project-v"] .v-lock-card h1 { margin: 0; font-size: 23px; letter-spacing: .12em; }
+html[data-brand="project-v"] .v-lock-card p { margin: 0; color: #938780; font-size: 10px; letter-spacing: .16em; }
+html[data-brand="project-v"] .v-unlock-form { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 8px; }
+html[data-brand="project-v"] .v-unlock-form input { min-width: 0; border: 1px solid #4b2a2a; background: #050505; color: #eee0d3; padding: 12px; text-align: center; letter-spacing: .25em; }
+html[data-brand="project-v"] .v-lock-card button { border: 1px solid #8d3030; background: #2a0f0f; color: #e9d9cc; padding: 0 18px; min-height: 42px; cursor: pointer; }
+html[data-brand="project-v"] .v-lock-card small { color: #706863; font-size: 9px; letter-spacing: .1em; }
+body.project-v-locked > :not(#app):not(.v-project-lock-overlay) { visibility: hidden !important; }
+
+html[data-brand="project-v"] .v-communications-shell,
+html[data-brand="project-v"] .v-source-browser-shell { display: grid; gap: 10px; height: 100%; min-height: 0; }
+html[data-brand="project-v"] .v-communications-banner { justify-content: space-between; }
+html[data-brand="project-v"] .v-communications-banner > div { display: grid; gap: 3px; }
+html[data-brand="project-v"] .v-communications-banner > div span { color: #a94747; font-size: 8px; letter-spacing: .14em; }
+html[data-brand="project-v"] .v-communications-banner > p { max-width: 440px; margin: 0; }
+html[data-brand="project-v"] .v-communications-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; overflow-y: auto; }
+html[data-brand="project-v"] .v-communication-card { display: grid; gap: 8px; align-content: start; padding: 11px; border: 1px solid #302525; background: rgba(11,10,10,.94); }
+html[data-brand="project-v"] .v-communication-card-head { display: flex; align-items: center; gap: 7px; }
+html[data-brand="project-v"] .v-communication-card-head strong { font-size: 10px; letter-spacing: .08em; }
+html[data-brand="project-v"] .v-communication-card-head small { margin-left: auto; color: #756e69; font-size: 7px; }
+html[data-brand="project-v"] .v-communication-signal { width: 7px; height: 7px; border-radius: 50%; background: #6da36b; box-shadow: 0 0 8px rgba(109,163,107,.55); }
+html[data-brand="project-v"] .v-communication-card p { margin: 0; min-height: 42px; color: #817873; font-size: 9px; line-height: 1.5; }
+html[data-brand="project-v"] .v-communication-card code { color: #a79990; font-size: 8px; }
+html[data-brand="project-v"] .v-communication-actions { gap: 5px; }
+html[data-brand="project-v"] .v-communication-actions button { min-height: 27px; padding: 0 7px; font-size: 7px; }
+html[data-brand="project-v"] .v-communications-form { display: grid; grid-template-columns: 1fr 1.5fr 1.6fr auto; gap: 7px; }
+html[data-brand="project-v"] .v-communications-status,
+html[data-brand="project-v"] .v-source-browser-status { min-height: 16px; color: #9cc195; font-size: 9px; letter-spacing: .06em; }
+html[data-brand="project-v"] .v-communications-status.error,
+html[data-brand="project-v"] .v-source-browser-status.error { color: #e0776f; }
+
+html[data-brand="project-v"] .v-source-browser-bar { display: grid; grid-template-columns: minmax(160px,.8fr) minmax(260px,2fr) auto auto; gap: 7px; }
+html[data-brand="project-v"] .v-source-browser-actions { justify-content: flex-start; }
+html[data-brand="project-v"] .v-source-recents { min-height: 0; overflow-y: auto; border: 1px solid #2d2424; background: #090808; }
+html[data-brand="project-v"] .v-source-recents-head { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; align-items: center; padding: 7px 9px; border-bottom: 1px solid #2d2424; background: #100d0d; }
+html[data-brand="project-v"] .v-source-recents-head strong { font-size: 9px; letter-spacing: .1em; }
+html[data-brand="project-v"] .v-source-recents-head button { min-height: 24px; }
+html[data-brand="project-v"] .v-source-recents > button[data-recent-index] { width: 100%; display: grid; grid-template-columns: minmax(0,1fr) 180px 170px; gap: 10px; align-items: center; min-height: 42px; border: 0; border-bottom: 1px solid #241d1d; background: transparent; text-align: left; }
+html[data-brand="project-v"] .v-source-recents > button[data-recent-index]:hover { background: rgba(91,28,28,.16); }
+html[data-brand="project-v"] .v-source-recents > button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[data-brand="project-v"] .v-source-recents > button span,
+html[data-brand="project-v"] .v-source-recents > button time { color: #7d746e; font-size: 8px; }
+html[data-brand="project-v"] .v-source-empty,
+html[data-brand="project-v"] .v-security-empty { padding: 18px; color: #746c67; font-size: 9px; text-align: center; }
+
+@media (max-width: 900px) {
+  html[data-brand="project-v"] #securityCenterContent { grid-template-columns: 1fr; }
+  html[data-brand="project-v"] .v-security-tabs { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid #2e1b1b; }
+  html[data-brand="project-v"] .v-security-tabs button { white-space: nowrap; }
+  html[data-brand="project-v"] .v-security-status-grid,
+  html[data-brand="project-v"] .v-backup-grid,
+  html[data-brand="project-v"] .v-network-modes,
+  html[data-brand="project-v"] .v-communications-explainer { grid-template-columns: 1fr; }
+  html[data-brand="project-v"] .v-pin-control { grid-template-columns: 1fr; }
+  html[data-brand="project-v"] .v-diagnostics-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  html[data-brand="project-v"] .v-plugin-permission-list article { grid-template-columns: 1fr; }
+  html[data-brand="project-v"] .v-communications-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  html[data-brand="project-v"] .v-communications-form,
+  html[data-brand="project-v"] .v-source-browser-bar { grid-template-columns: 1fr; }
+}
+
+/* --------------------------------------------------------------------------
+   PROJECT V // PHASE 10.1 — NATIVE COMMUNICATIONS DOCK + LOCK PORTAL
+   -------------------------------------------------------------------------- */
+html[data-brand="project-v"] .v-project-lock-overlay {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  isolation: isolate;
+}
+html[data-brand="project-v"] .v-project-lock-overlay.active {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+body.project-v-locked > #app {
+  visibility: hidden !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+body.project-v-locked > .v-project-lock-overlay {
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+html[data-brand="project-v"] .v-lock-card {
+  position: relative;
+  overflow: hidden;
+}
+html[data-brand="project-v"] .v-lock-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 0 42%, rgba(150,35,35,.09) 50%, transparent 58% 100%);
+  transform: translateX(-120%);
+  animation: pv-lock-scan 4.5s linear infinite;
+}
+@keyframes pv-lock-scan {
+  to { transform: translateX(120%); }
+}
+
+html[data-brand="project-v"] .v-communications-panel .panel-content {
+  overflow: auto;
+}
+html[data-brand="project-v"] .v-communications-dock {
+  min-height: 148px;
+  border: 1px solid #342323;
+  background: linear-gradient(145deg, rgba(20,12,12,.96), rgba(5,5,5,.98));
+}
+html[data-brand="project-v"] .v-communications-dock-idle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  color: #776d67;
+  text-align: left;
+}
+html[data-brand="project-v"] .v-communications-dock-idle-mark {
+  width: 54px;
+  height: 54px;
+  flex: 0 0 54px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #783030;
+  border-radius: 50%;
+  color: #b85a53;
+  font: 700 30px/1 Georgia, serif;
+}
+html[data-brand="project-v"] .v-communications-dock-idle > div:last-child {
+  display: grid;
+  gap: 5px;
+}
+html[data-brand="project-v"] .v-communications-dock-idle strong {
+  color: #b9aaa0;
+  font-size: 10px;
+  letter-spacing: .12em;
+}
+html[data-brand="project-v"] .v-communications-dock-idle span {
+  max-width: 700px;
+  font-size: 9px;
+  line-height: 1.5;
+}
+html[data-brand="project-v"] .v-communications-dock.active {
+  display: grid;
+  grid-template-rows: auto minmax(360px, 1fr);
+  min-height: 430px;
+  overflow: hidden;
+}
+html[data-brand="project-v"] .v-communications-dock-toolbar {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 9px;
+  border-bottom: 1px solid #342323;
+  background: rgba(10,8,8,.98);
+}
+html[data-brand="project-v"] .v-communications-dock-toolbar > div:first-child {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+html[data-brand="project-v"] .v-communications-dock-toolbar strong {
+  color: #d3c2b5;
+  font-size: 10px;
+  letter-spacing: .09em;
+}
+html[data-brand="project-v"] .v-communications-dock-toolbar small {
+  color: #746b65;
+  font-size: 7px;
+  letter-spacing: .11em;
+}
+html[data-brand="project-v"] .v-communications-dock-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 360px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(91,20,20,.15), transparent 42%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 4px),
+    #050505;
+}
+html[data-brand="project-v"] .v-communications-dock-stage iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  border: 0;
+  background: #fff;
+}
+html[data-brand="project-v"] .v-native-dock-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 7px;
+  padding: 20px;
+  text-align: center;
+}
+html[data-brand="project-v"] .v-native-dock-placeholder span {
+  color: #9e4141;
+  font-size: 8px;
+  letter-spacing: .17em;
+}
+html[data-brand="project-v"] .v-native-dock-placeholder strong {
+  color: #c9b9ad;
+  font-size: 11px;
+  letter-spacing: .12em;
+}
+html[data-brand="project-v"] .v-native-dock-placeholder small {
+  max-width: 520px;
+  color: #716963;
+  font-size: 8px;
+  line-height: 1.5;
+}
+html[data-brand="project-v"] .v-iframe-warning {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  padding: 7px 9px;
+  border: 1px solid rgba(126,62,32,.75);
+  background: rgba(20,11,7,.92);
+  color: #c49a76;
+  font-size: 8px;
+  pointer-events: none;
+}
+html[data-brand="project-v"] .v-communication-card.active {
+  border-color: #873333;
+  box-shadow: inset 0 0 0 1px rgba(135,51,51,.18);
+}
+html[data-brand="project-v"] body.deck-edit-mode .v-communications-dock-stage::after {
+  content: "COMMUNICATIONS VIEW HIDDEN WHILE EDITING DECK";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  background: rgba(7,6,6,.95);
+  color: #9a4444;
+  font-size: 9px;
+  letter-spacing: .14em;
+}
+@media (max-width: 900px) {
+  html[data-brand="project-v"] .v-communications-dock-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  html[data-brand="project-v"] .v-communications-dock.active {
+    grid-template-rows: auto minmax(300px,1fr);
+  }
+  html[data-brand="project-v"] .v-communications-dock-stage {
+    min-height: 300px;
+  }
+}
+
+/* Phase Eleven compact Case Desk and Data Desk launch panels */
+html[data-brand="project-v"] .v-case-status-panel .panel-content,
+html[data-brand="project-v"] .v-data-library-panel .panel-content {
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+}
+html[data-brand="project-v"] .v-desk-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+html[data-brand="project-v"] .v-desk-summary-grid > div {
+  min-width: 0;
+  padding: 8px 6px;
+  border: 1px solid rgba(96,53,53,.6);
+  background: rgba(12,8,8,.8);
+  text-align: center;
+}
+html[data-brand="project-v"] .v-desk-summary-grid strong {
+  display: block;
+  color: #ded5ca;
+  font-size: 15px;
+}
+html[data-brand="project-v"] .v-desk-summary-grid span {
+  display: block;
+  margin-top: 3px;
+  color: #726964;
+  font-size: 7px;
+  letter-spacing: .07em;
+}
+html[data-brand="project-v"] .v-desk-recent {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border-left: 2px solid #873737;
+  background: rgba(68,25,25,.13);
+}
+html[data-brand="project-v"] .v-desk-recent span { color: #8f4b4b; font-size: 7px; }
+html[data-brand="project-v"] .v-desk-recent strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+html[data-brand="project-v"] .v-desk-recent small { color: #716963; font-size: 7px; }
+html[data-brand="project-v"] .v-desk-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+html[data-brand="project-v"] .v-desk-actions button { min-height: 30px; border: 1px solid #633535; background: #160d0d; color: #c8b8ae; font-size: 8px; }
+html[data-brand="project-v"] .v-desk-actions button:hover { border-color: #ad4848; color: #fff; }
+
+/* Phase 12: Assistant window and live-source refresh control */
+html[data-brand="project-v"] .v-assistant-live-toggle {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 1px solid #3a2829;
+  background: #0d090a;
+  color: #9b8d84;
+  font: 700 8px/1 var(--v-mono, monospace);
+  letter-spacing: .08em;
+  white-space: nowrap;
+}
+html[data-brand="project-v"] .v-assistant-live-toggle input { width: auto; accent-color: #a9343a; }
+
+/* ========================================================================== */
+/* Project V Phase 13 — Voice Command Center                                 */
+/* ========================================================================== */
+html[data-brand="project-v"] .v-voice-control-btn {
+  border-color: rgba(115, 50, 54, .68);
+  color: #d4c2b7;
+}
+html[data-brand="project-v"] .v-voice-control-btn span {
+  margin-left: 4px;
+  color: #6ed69a;
+  font-size: 7px;
+}
+html[data-brand="project-v"] .v-voice-control-btn::before {
+  content: '◉';
+  margin-right: 5px;
+  color: #c03c43;
+}
+html[data-brand="project-v"] .v-voice-control-btn.listening {
+  color: #fff0e7;
+  border-color: #e14f57;
+  background: rgba(106, 15, 21, .58);
+  box-shadow: 0 0 15px rgba(205, 47, 56, .28);
+  animation: pv-voice-header-pulse 1s ease-in-out infinite;
+}
+html[data-brand="project-v"] .v-voice-control-btn.listening span { color: #ff777d; }
+html[data-brand="project-v"] .v-voice-control-btn.unsupported span { color: #c89a53; }
+@keyframes pv-voice-header-pulse { 50% { box-shadow: 0 0 25px rgba(224, 57, 67, .5); } }
+
+html[data-brand="project-v"] .v-voice-control-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1190;
+  display: none;
+  background: rgba(0, 0, 0, .58);
+  backdrop-filter: blur(2px);
+}
+html[data-brand="project-v"] .v-voice-control-backdrop.open { display: block; }
+html[data-brand="project-v"] .v-voice-control {
+  position: fixed;
+  z-index: 1200;
+  top: 0;
+  right: 0;
+  width: min(620px, 96vw);
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  transform: translateX(104%);
+  transition: transform .2s ease;
+  border-left: 1px solid #6f282c;
+  background: #080606;
+  box-shadow: -20px 0 60px rgba(0, 0, 0, .72);
+}
+html[data-brand="project-v"] .v-voice-control.open { transform: translateX(0); }
+html[data-brand="project-v"] .v-voice-control-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #552326;
+  background: linear-gradient(180deg, #160b0c, #0a0707);
+}
+html[data-brand="project-v"] .v-voice-control-header div { display: grid; gap: 4px; }
+html[data-brand="project-v"] .v-voice-control-header span {
+  color: #8f4a4d;
+  font: 700 7px/1 var(--v-mono, monospace);
+  letter-spacing: .17em;
+}
+html[data-brand="project-v"] .v-voice-control-header strong {
+  color: #e3d7cd;
+  font: 700 14px/1.1 var(--v-mono, monospace);
+  letter-spacing: .14em;
+}
+html[data-brand="project-v"] .v-voice-control-header button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #4b292a;
+  color: #a99a91;
+  background: #0c0909;
+  cursor: pointer;
+}
+html[data-brand="project-v"] #voiceControlContent { min-height: 0; overflow: auto; }
+html[data-brand="project-v"] .v-voice-console {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  color: #c9bdb4;
+  font-family: var(--v-mono, monospace);
+}
+html[data-brand="project-v"] .v-voice-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+html[data-brand="project-v"] .v-voice-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid #423031;
+  color: #a99d95;
+  background: #0d0909;
+  font-size: 8px;
+  letter-spacing: .1em;
+  white-space: nowrap;
+}
+html[data-brand="project-v"] .v-voice-status > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+html[data-brand="project-v"] .v-voice-status.ready { color: #5ed48c; border-color: #28573b; }
+html[data-brand="project-v"] .v-voice-status.listening { color: #ff6269; border-color: #96343a; }
+html[data-brand="project-v"] .v-voice-status.checking { color: #d0a15b; border-color: #6c4d25; }
+html[data-brand="project-v"] .v-voice-status.warn { color: #d4a65a; border-color: #66502d; }
+html[data-brand="project-v"] .v-voice-status.error { color: #df676b; border-color: #743236; }
+html[data-brand="project-v"] .v-voice-privacy {
+  min-width: 0;
+  overflow: hidden;
+  color: #6c625c;
+  font-size: 7px;
+  letter-spacing: .07em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-brand="project-v"] .v-voice-listen-zone {
+  display: grid;
+  grid-template-columns: 175px minmax(0, 1fr);
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #432122;
+  background: radial-gradient(circle at 15% 50%, rgba(109, 21, 27, .18), transparent 40%), #0b0808;
+}
+html[data-brand="project-v"] .v-voice-listen-zone.listening {
+  border-color: #9d343a;
+  box-shadow: inset 0 0 30px rgba(130, 23, 30, .16);
+}
+html[data-brand="project-v"] .v-voice-ptt {
+  min-height: 112px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  border: 1px solid #703036;
+  color: #e7d7cd;
+  background: linear-gradient(160deg, #281113, #100909);
+  cursor: pointer;
+}
+html[data-brand="project-v"] .v-voice-ptt:disabled { opacity: .38; cursor: not-allowed; }
+html[data-brand="project-v"] .v-voice-ptt:hover:not(:disabled) { border-color: #c3474d; }
+html[data-brand="project-v"] .v-voice-listen-zone.listening .v-voice-ptt {
+  border-color: #e44d55;
+  background: linear-gradient(160deg, #4a1116, #17090a);
+  animation: pv-voice-ptt-pulse .9s ease-in-out infinite;
+}
+@keyframes pv-voice-ptt-pulse { 50% { filter: brightness(1.3); } }
+html[data-brand="project-v"] .v-voice-mic { color: #d94d54; font-size: 30px; line-height: 1; }
+html[data-brand="project-v"] .v-voice-ptt strong { font-size: 9px; letter-spacing: .1em; }
+html[data-brand="project-v"] .v-voice-ptt small { color: #766a63; font-size: 7px; }
+html[data-brand="project-v"] .v-voice-transcript {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #302121;
+  background: #070606;
+}
+html[data-brand="project-v"] .v-voice-transcript > span { color: #a54449; font-size: 7px; letter-spacing: .13em; }
+html[data-brand="project-v"] .v-voice-transcript > strong { color: #d8cbc2; font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
+html[data-brand="project-v"] .v-voice-transcript > em { color: #c8944f; font-size: 7px; font-style: normal; }
+html[data-brand="project-v"] .v-voice-manual {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid #322323;
+  background: #0b0808;
+}
+html[data-brand="project-v"] .v-voice-manual label { display: grid; gap: 5px; color: #8d7e76; font-size: 7px; letter-spacing: .09em; }
+html[data-brand="project-v"] .v-voice-manual textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 1px solid #432a2b;
+  color: #ded1c8;
+  background: #060505;
+  padding: 8px;
+  font: 500 10px/1.45 var(--v-mono, monospace);
+}
+html[data-brand="project-v"] .v-voice-manual > div,
+html[data-brand="project-v"] .v-voice-settings-actions,
+html[data-brand="project-v"] .v-voice-confirmation > div { display: flex; flex-wrap: wrap; gap: 6px; }
+html[data-brand="project-v"] .v-voice-console button,
+html[data-brand="project-v"] .v-voice-console select,
+html[data-brand="project-v"] .v-voice-console input[type="text"] {
+  border: 1px solid #442728;
+  color: #bfb1a8;
+  background: #0d0909;
+  min-height: 30px;
+  padding: 0 8px;
+  font: 700 8px/1 var(--v-mono, monospace);
+}
+html[data-brand="project-v"] .v-voice-console button { cursor: pointer; }
+html[data-brand="project-v"] .v-voice-console button:hover { border-color: #a83a40; color: #efe1d7; }
+html[data-brand="project-v"] .v-voice-console button.primary { border-color: #9e343a; background: #381114; color: #f0ded4; }
+html[data-brand="project-v"] .v-voice-console button.danger { border-color: #a7383d; color: #f08a8f; }
+html[data-brand="project-v"] .v-voice-outcome,
+html[data-brand="project-v"] .v-voice-confirmation {
+  display: grid;
+  gap: 5px;
+  padding: 9px 10px;
+  border: 1px solid #3d2929;
+  background: #0c0909;
+}
+html[data-brand="project-v"] .v-voice-outcome strong,
+html[data-brand="project-v"] .v-voice-confirmation strong { color: #b64b50; font-size: 7px; letter-spacing: .12em; }
+html[data-brand="project-v"] .v-voice-outcome span,
+html[data-brand="project-v"] .v-voice-confirmation span { color: #d0c2b9; font-size: 9px; line-height: 1.45; }
+html[data-brand="project-v"] .v-voice-confirmation { border-color: #884027; background: #160d08; }
+html[data-brand="project-v"] .v-voice-confirmation p { margin: 0; color: #927a69; font-size: 8px; line-height: 1.5; }
+html[data-brand="project-v"] .v-voice-settings,
+html[data-brand="project-v"] .v-voice-help,
+html[data-brand="project-v"] .v-voice-history {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #322323;
+  background: #0a0707;
+}
+html[data-brand="project-v"] .v-voice-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid #302020;
+}
+html[data-brand="project-v"] .v-voice-section-title > span { color: #7d4447; font-size: 7px; letter-spacing: .13em; }
+html[data-brand="project-v"] .v-voice-section-title > strong { color: #d0c1b8; font-size: 9px; letter-spacing: .1em; }
+html[data-brand="project-v"] .v-voice-section-title > button { margin-left: auto; min-height: 24px; }
+html[data-brand="project-v"] .v-voice-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+html[data-brand="project-v"] .v-voice-settings-grid label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  color: #887a72;
+  font-size: 7px;
+  letter-spacing: .08em;
+}
+html[data-brand="project-v"] .v-voice-settings-grid label.checkbox {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid #302121;
+  background: #0c0909;
+}
+html[data-brand="project-v"] .v-voice-settings-grid input[type="checkbox"] { width: auto; accent-color: #ae373d; }
+html[data-brand="project-v"] .v-voice-settings-grid input[type="range"] { width: 100%; accent-color: #a7353b; }
+html[data-brand="project-v"] .v-voice-settings-grid output { color: #be5a5f; }
+html[data-brand="project-v"] .v-voice-example-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+html[data-brand="project-v"] .v-voice-example-grid article {
+  display: grid;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid #2d2020;
+  background: #080606;
+}
+html[data-brand="project-v"] .v-voice-example-grid strong { color: #b54a4f; font-size: 7px; letter-spacing: .1em; }
+html[data-brand="project-v"] .v-voice-example-grid span { color: #978a82; font-size: 8px; }
+html[data-brand="project-v"] .v-voice-help > p { margin: 0; color: #756a64; font-size: 7px; line-height: 1.55; }
+html[data-brand="project-v"] .v-voice-history-list { display: grid; gap: 5px; max-height: 220px; overflow: auto; }
+html[data-brand="project-v"] .v-voice-history-list article {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 4px 8px;
+  padding: 7px;
+  border-left: 2px solid #456c51;
+  background: #0c0909;
+}
+html[data-brand="project-v"] .v-voice-history-list article.failed { border-left-color: #9b4b31; }
+html[data-brand="project-v"] .v-voice-history-list time { color: #625a55; font-size: 7px; }
+html[data-brand="project-v"] .v-voice-history-list strong { color: #c7bbb3; font-size: 8px; overflow-wrap: anywhere; }
+html[data-brand="project-v"] .v-voice-history-list span { grid-column: 2; color: #7d716b; font-size: 7px; line-height: 1.4; }
+html[data-brand="project-v"] .v-voice-history-list > p { color: #625b56; font-size: 8px; }
+html[data-brand="project-v"] .v-assistant-mic-btn.listening {
+  color: #ff777c;
+  border-color: #c74349;
+  background: #321014;
+  animation: pv-voice-header-pulse .9s ease-in-out infinite;
+}
+
+@media (max-width: 700px) {
+  html[data-brand="project-v"] .v-voice-listen-zone { grid-template-columns: 1fr; }
+  html[data-brand="project-v"] .v-voice-settings-grid,
+  html[data-brand="project-v"] .v-voice-example-grid { grid-template-columns: 1fr; }
+  html[data-brand="project-v"] .v-voice-privacy { display: none; }
+}
+
+/* Phase 14 — Launch Deck */
+html[data-brand="project-v"] .v-launch-deck-btn span { color: #d9902f; }
+html[data-brand="project-v"] .v-launch-deck-panel .panel-content { display: flex; flex-direction: column; gap: 9px; padding: 10px; }
+html[data-brand="project-v"] .v-launch-deck-summary { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 7px; }
+html[data-brand="project-v"] .v-launch-deck-summary > div { display: grid; gap: 4px; padding: 8px; border: 1px solid #352426; background: #0b0808; }
+html[data-brand="project-v"] .v-launch-deck-summary strong { color: #df4a55; font: 700 18px var(--v-mono, monospace); }
+html[data-brand="project-v"] .v-launch-deck-summary span { color: #766a65; font-size: 7px; letter-spacing: .12em; }
+html[data-brand="project-v"] .v-launch-deck-buttons { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; }
+html[data-brand="project-v"] .v-launch-deck-buttons button { min-width: 0; display: grid; grid-template-columns: 28px minmax(0,1fr); align-items: center; gap: 8px; text-align: left; padding: 8px; border: 1px solid #3c292b; background: #0c0909; color: #d6c8bf; cursor: pointer; }
+html[data-brand="project-v"] .v-launch-deck-buttons button:hover { border-color: #b63740; background: #180d0f; }
+html[data-brand="project-v"] .v-launch-deck-buttons button span { display: grid; place-items: center; width: 26px; height: 26px; border: 1px solid #71323a; color: #e34854; background: #150a0c; }
+html[data-brand="project-v"] .v-launch-deck-buttons button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; letter-spacing: .06em; }
+html[data-brand="project-v"] .v-launch-deck-empty { grid-column: 1 / -1; padding: 16px 10px; text-align: center; border: 1px dashed #39272a; color: #7e706a; font: 8px/1.55 var(--v-mono, monospace); }
+html[data-brand="project-v"] .v-launch-deck-empty small { color: #625854; }
+html[data-brand="project-v"] .v-launch-deck-status { min-height: 14px; color: #7c6e68; font-size: 7px; letter-spacing: .08em; overflow-wrap: anywhere; }
+
+/* Built-in map signal handoff */
+html[data-brand="project-v"] .v-map-popup-intelligence-actions { display: grid; gap: 7px; padding: 10px 12px 12px; border-top: 1px solid rgba(201,47,62,.45); background: linear-gradient(180deg, rgba(55,12,18,.32), rgba(8,6,6,.96)); }
+html[data-brand="project-v"] .v-map-popup-intelligence-actions > span { color: #df4a56; font: 700 8px var(--v-mono, monospace); letter-spacing: .13em; }
+html[data-brand="project-v"] .v-map-popup-intelligence-actions > div { display: flex; flex-wrap: wrap; gap: 5px; }
+html[data-brand="project-v"] .v-map-popup-intelligence-actions button { border: 1px solid #5a3035; background: #0d0909; color: #d5c5ba; padding: 7px 8px; cursor: pointer; font: 700 8px var(--v-mono, monospace); letter-spacing: .05em; }
+html[data-brand="project-v"] .v-map-popup-intelligence-actions button:hover { border-color: #d33a47; color: white; background: #231013; }
+html[data-brand="project-v"] .v-map-popup-intelligence-actions button:disabled { opacity: .65; cursor: wait; }
+html[data-brand="project-v"] .v-map-popup-intelligence-actions small { color: #6f625d; font: 7px/1.4 var(--v-mono, monospace); letter-spacing: .06em; }
+html[data-brand="project-v"] .v-notification-settings > small { flex-basis: 100%; color: #665b57; font-size: 7px; line-height: 1.45; }
+
+
+/* Phase 15 — Camera Wall dashboard module */
+html[data-brand="project-v"] .v-camera-wall-panel > .panel-content { display:grid; align-content:start; gap:9px; padding:10px; }
+html[data-brand="project-v"] .v-camera-wall-summary { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; }
+html[data-brand="project-v"] .v-camera-wall-summary > div { display:grid; place-items:center; gap:3px; min-height:54px; border:1px solid rgba(112,48,51,.55); background:#0c0909; }
+html[data-brand="project-v"] .v-camera-wall-summary strong { color:#e1d4ca; font-size:18px; }
+html[data-brand="project-v"] .v-camera-wall-summary span { color:#776b65; font-size:6px; letter-spacing:.11em; }
+html[data-brand="project-v"] .v-camera-wall-preview { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; }
+html[data-brand="project-v"] .v-camera-wall-preview > div { min-width:0; display:grid; grid-template-columns:auto minmax(0,1fr); gap:2px 6px; padding:7px; border:1px solid #302222; background:#080707; }
+html[data-brand="project-v"] .v-camera-wall-preview .live { width:6px; height:6px; grid-row:1 / span 2; align-self:center; border-radius:50%; background:#d63c43; box-shadow:0 0 8px rgba(214,60,67,.65); }
+html[data-brand="project-v"] .v-camera-wall-preview strong, html[data-brand="project-v"] .v-camera-wall-preview small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+html[data-brand="project-v"] .v-camera-wall-preview strong { color:#cfc2b9; font-size:8px; }
+html[data-brand="project-v"] .v-camera-wall-preview small { color:#665d58; font-size:6px; }
+html[data-brand="project-v"] .v-camera-wall-preview p { grid-column:1 / -1; color:#776b65; text-align:center; font-size:8px; }
+html[data-brand="project-v"] .v-camera-wall-foot { color:#685d58; font-size:6px; letter-spacing:.08em; }
+html[data-brand="project-v"] .v-camera-wall-btn span { color:#db676b; }
+
+/* Phase 16 compact multi-agent research panel */
+.v-multi-agent-research-panel .panel-content { display: flex; flex-direction: column; gap: 10px; }
+.v-research-lab-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.v-research-lab-summary > div { display: grid; gap: 3px; padding: 9px; border: 1px solid rgba(147, 54, 62, .38); background: rgba(22, 9, 12, .55); text-align: center; }
+.v-research-lab-summary strong { color: #69d58f; font-size: 18px; }
+.v-research-lab-summary span { color: #8d7775; font-size: 8px; letter-spacing: .1em; }
+.v-research-lab-agents { display: flex; flex-wrap: wrap; gap: 5px; }
+.v-research-lab-agents span { padding: 4px 6px; border: 1px solid rgba(173, 62, 72, .4); color: #e5656d; font-size: 8px; letter-spacing: .08em; }
+.v-research-lab-foot { color: #776562; font-size: 8px; line-height: 1.4; letter-spacing: .08em; }
+.v-multi-agent-research-panel .v-desk-actions { margin-top: auto; }

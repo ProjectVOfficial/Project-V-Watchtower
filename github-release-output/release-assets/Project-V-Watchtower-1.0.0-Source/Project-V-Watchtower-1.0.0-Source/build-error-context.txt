@@ -1,0 +1,1053 @@
+
+==================================================
+FILE: package.json
+==================================================
+    1: {
+    2:   "name": "project-v-watchtower",
+    3:   "private": true,
+    4:   "version": "1.0.0",
+    5:   "license": "AGPL-3.0-only",
+    6:   "type": "module",
+    7:   "scripts": {
+    8:     "lint:md": "markdownlint-cli2 '**/*.md' '!.agent/**' '!.agents/**' '!.claude/**' '!.factory/**' '!.windsurf/**' '!skills/**' '!docs/internal/**' '!docs/Docs_To_Review/**'",
+    9:     "version:sync": "node scripts/sync-desktop-version.mjs",
+   10:     "version:check": "node scripts/sync-desktop-version.mjs --check",
+   11:     "dev": "vite",
+   12:     "dev:tech": "cross-env VITE_VARIANT=tech vite",
+   13:     "dev:finance": "cross-env VITE_VARIANT=finance vite",
+   14:     "dev:happy": "cross-env VITE_VARIANT=happy vite",
+   15:     "build": "tsc && vite build",
+   16:     "build:sidecar-sebuf": "node scripts/build-sidecar-sebuf.mjs",
+   17:     "build:desktop": "node scripts/build-sidecar-sebuf.mjs && tsc && vite build",
+   18:     "build:full": "cross-env-shell VITE_VARIANT=full \"tsc && vite build\"",
+   19:     "build:tech": "cross-env-shell VITE_VARIANT=tech \"tsc && vite build\"",
+   20:     "build:finance": "cross-env-shell VITE_VARIANT=finance \"tsc && vite build\"",
+   21:     "build:happy": "cross-env-shell VITE_VARIANT=happy \"tsc && vite build\"",
+   22:     "typecheck": "tsc --noEmit",
+   23:     "typecheck:api": "tsc --noEmit -p tsconfig.api.json",
+   24:     "typecheck:all": "tsc --noEmit && tsc --noEmit -p tsconfig.api.json",
+   25:     "tauri": "tauri",
+   26:     "preview": "vite preview",
+   27:     "test:e2e:full": "cross-env VITE_VARIANT=full playwright test",
+   28:     "test:e2e:tech": "cross-env VITE_VARIANT=tech playwright test",
+   29:     "test:e2e:finance": "cross-env VITE_VARIANT=finance playwright test",
+   30:     "test:e2e:runtime": "cross-env VITE_VARIANT=full playwright test e2e/runtime-fetch.spec.ts",
+   31:     "test:e2e": "npm run test:e2e:runtime && npm run test:e2e:full && npm run test:e2e:tech && npm run test:e2e:finance",
+   32:     "test:data": "tsx --test tests/*.test.mjs tests/*.test.mts",
+   33:     "test:feeds": "node scripts/validate-rss-feeds.mjs",
+   34:     "test:sidecar": "node --test src-tauri/sidecar/local-api-server.test.mjs api/_cors.test.mjs api/youtube/embed.test.mjs api/cyber-threats.test.mjs api/usni-fleet.test.mjs scripts/ais-relay-rss.test.cjs api/loaders-xml-wms-regression.test.mjs",
+   35:     "test:e2e:visual:full": "cross-env VITE_VARIANT=full playwright test -g \"matches golden screenshots per layer and zoom\"",
+   36:     "test:e2e:visual:tech": "cross-env VITE_VARIANT=tech playwright test -g \"matches golden screenshots per layer and zoom\"",
+   37:     "test:e2e:visual": "npm run test:e2e:visual:full && npm run test:e2e:visual:tech",
+   38:     "test:e2e:visual:update:full": "cross-env VITE_VARIANT=full playwright test -g \"matches golden screenshots per layer and zoom\" --update-snapshots",
+   39:     "test:e2e:visual:update:tech": "cross-env VITE_VARIANT=tech playwright test -g \"matches golden screenshots per layer and zoom\" --update-snapshots",
+   40:     "test:e2e:visual:update": "npm run test:e2e:visual:update:full && npm run test:e2e:visual:update:tech",
+   41:     "desktop:dev": "npm run version:sync && cross-env VITE_DESKTOP_RUNTIME=1 tauri dev -f devtools",
+   42:     "desktop:build:full": "npm run version:sync && cross-env VITE_VARIANT=full VITE_DESKTOP_RUNTIME=1 tauri build",
+   43:     "desktop:build:tech": "npm run version:sync && cross-env VITE_VARIANT=tech VITE_DESKTOP_RUNTIME=1 tauri build --config src-tauri/tauri.tech.conf.json",
+   44:     "desktop:build:finance": "npm run version:sync && cross-env VITE_VARIANT=finance VITE_DESKTOP_RUNTIME=1 tauri build --config src-tauri/tauri.finance.conf.json",
+   45:     "desktop:package:macos:full": "node scripts/desktop-package.mjs --os macos --variant full",
+   46:     "desktop:package:macos:tech": "node scripts/desktop-package.mjs --os macos --variant tech",
+   47:     "desktop:package:windows:full": "node scripts/desktop-package.mjs --os windows --variant full",
+   48:     "desktop:package:windows:tech": "node scripts/desktop-package.mjs --os windows --variant tech",
+   49:     "desktop:package:macos:full:sign": "node scripts/desktop-package.mjs --os macos --variant full --sign",
+   50:     "desktop:package:macos:tech:sign": "node scripts/desktop-package.mjs --os macos --variant tech --sign",
+   51:     "desktop:package:windows:full:sign": "node scripts/desktop-package.mjs --os windows --variant full --sign",
+   52:     "desktop:package:windows:tech:sign": "node scripts/desktop-package.mjs --os windows --variant tech --sign",
+   53:     "desktop:package": "node scripts/desktop-package.mjs",
+   54:     "release:prepare": "node scripts/release/prepare-release-config.mjs",
+   55:     "release:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/build-windows-release.ps1",
+   56:     "release:manifest": "node scripts/release/generate-release-manifests.mjs",
+   57:     "release:verify": "node scripts/release/verify-release.mjs",
+   58:     "release:keygen": "node scripts/release/keygen-help.mjs",
+   59:     "connectors:validate": "node scripts/connectors/validate-connectors.mjs",
+   60:     "desktop:build:release": "npm run version:sync && cross-env VITE_VARIANT=full VITE_DESKTOP_RUNTIME=1 VITE_PROJECT_V_UPDATER_ENABLED=1 tauri build --features updater --config src-tauri/tauri.release.conf.json"
+   61:   },
+   62:   "devDependencies": {
+   63:     "@playwright/test": "^1.52.0",
+   64:     "@tauri-apps/cli": "^2.10.0",
+   65:     "@types/canvas-confetti": "^1.9.0",
+   66:     "@types/d3": "^7.4.3",
+   67:     "@types/dompurify": "^3.0.5",
+   68:     "@types/maplibre-gl": "^1.13.2",
+   69:     "@types/marked": "^5.0.2",
+   70:     "@types/papaparse": "^5.5.2",
+   71:     "@types/topojson-client": "^3.1.5",
+   72:     "@types/topojson-specification": "^1.0.5",
+   73:     "cross-env": "^10.1.0",
+   74:     "esbuild": "^0.27.3",
+   75:     "h3-js": "^4.4.0",
+   76:     "markdownlint-cli2": "^0.20.0",
+   77:     "tsx": "^4.21.0",
+   78:     "typescript": "^5.7.2",
+   79:     "vite": "^6.0.7",
+   80:     "vite-plugin-pwa": "^1.2.0"
+   81:   },
+   82:   "dependencies": {
+   83:     "@deck.gl/aggregation-layers": "^9.2.6",
+   84:     "@deck.gl/core": "^9.2.6",
+   85:     "@deck.gl/geo-layers": "^9.2.6",
+   86:     "@deck.gl/layers": "^9.2.6",
+   87:     "@deck.gl/mapbox": "^9.2.6",
+   88:     "@sentry/browser": "^10.39.0",
+   89:     "@upstash/ratelimit": "^2.0.8",
+   90:     "@upstash/redis": "^1.36.1",
+   91:     "@vercel/analytics": "^1.6.1",
+   92:     "@xenova/transformers": "^2.17.2",
+   93:     "canvas-confetti": "^1.9.4",
+   94:     "convex": "^1.32.0",
+   95:     "d3": "^7.9.0",
+   96:     "deck.gl": "^9.2.6",
+   97:     "dompurify": "^3.1.7",
+   98:     "fast-xml-parser": "^5.3.7",
+   99:     "i18next": "^25.8.10",
+  100:     "i18next-browser-languagedetector": "^8.2.1",
+  101:     "maplibre-gl": "^5.16.0",
+  102:     "marked": "^17.0.3",
+  103:     "onnxruntime-web": "^1.23.2",
+  104:     "papaparse": "^5.5.3",
+  105:     "telegram": "^2.26.22",
+  106:     "topojson-client": "^3.1.0",
+  107:     "ws": "^8.19.0",
+  108:     "youtubei.js": "^16.0.1",
+  109:     "pdfjs-dist": "^4.10.38"
+  110:   },
+  111:   "overrides": {
+  112:     "fast-xml-parser": "^5.3.7"
+  113:   }
+  114: }
+
+==================================================
+FILE: tsconfig.json
+==================================================
+    1: {
+    2:   "compilerOptions": {
+    3:     "target": "ES2020",
+    4:     "useDefineForClassFields": true,
+    5:     "module": "ESNext",
+    6:     "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    7:     "types": ["vite/client"],
+    8:     "skipLibCheck": true,
+    9:     "moduleResolution": "bundler",
+   10:     "allowImportingTsExtensions": true,
+   11:     "isolatedModules": true,
+   12:     "moduleDetection": "force",
+   13:     "noEmit": true,
+   14:     "strict": true,
+   15:     "noUnusedLocals": true,
+   16:     "noUnusedParameters": true,
+   17:     "noFallthroughCasesInSwitch": true,
+   18:     "noUncheckedIndexedAccess": true,
+   19:     "resolveJsonModule": true,
+   20:     "esModuleInterop": true,
+   21:     "baseUrl": ".",
+   22:     "paths": {
+   23:       "@/*": ["src/*"]
+   24:     }
+   25:   },
+   26:   "include": ["src"],
+   27:   "exclude": ["src/workers/ml.worker.ts"]
+   28: }
+
+==================================================
+FILE: src\map-operations-main.ts
+==================================================
+  135:   mount!.querySelector<HTMLButtonElement>('[data-map-action="export"]')?.addEventListener('click', exportArchive);
+  136:   mount!.querySelector<HTMLButtonElement>('[data-map-action="geojson"]')?.addEventListener('click', exportGeoJson);
+  137:   mount!.querySelector<HTMLButtonElement>('[data-map-action="import"]')?.addEventListener('click', () => mount!.querySelector<HTMLInputElement>('[data-map-import]')?.click());
+  138:   mount!.querySelector<HTMLInputElement>('[data-map-import]')?.addEventListener('change', (event) => void importArchive(event));
+  139:   mount!.querySelector<HTMLButtonElement>('[data-map-action="close"]')?.addEventListener('click', () => void closeWindow());
+  140:   mount!.querySelector<HTMLInputElement>('[data-item-search]')?.addEventListener('input', (event) => {
+  141:     search = (event.target as HTMLInputElement).value.toLowerCase();
+  142:     renderItemList();
+  143:   });
+  144: }
+  145: 
+  146: function initMap(): void {
+  147:   const container = document.getElementById('mapOperationsMap');
+  148:   if (!container) return;
+  149:   map = new maplibregl.Map({
+  150:     container,
+  151:     style: DARK_STYLE,
+  152:     center: [state.lastView.center.lon, state.lastView.center.lat],
+  153:     zoom: state.lastView.zoom,
+  154:     bearing: state.lastView.bearing,
+  155:     pitch: state.lastView.pitch,
+  156:     preserveDrawingBuffer: true,
+  157:     attributionControl: false,
+  158:   });
+  159:   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+  160:   map.addControl(new maplibregl.ScaleControl({ maxWidth: 150, unit: 'metric' }), 'bottom-left');
+  161:   map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+  162:   map.on('load', () => {
+  163:     map?.addSource('project-v-map-items', { type: 'geojson', data: mapOperationsFeatureCollection(state) });
+  164:     map?.addSource('project-v-map-draft', { type: 'geojson', data: emptyCollection() });
+  165:     addOperationLayers();
+  166:     updateMapData();
+  167:     const requestedMode = new URLSearchParams(location.search).get('mode');
+  168:     if (requestedMode && ['marker', 'circle', 'rectangle', 'polygon', 'route', 'measure'].includes(requestedMode)) beginDraw(requestedMode as DrawMode);
+  169:   });
+  170:   map.on('mousemove', (event) => {
+  171:     const readout = mount!.querySelector<HTMLElement>('[data-coordinate-readout]');
+  172:     if (readout) readout.textContent = `LAT ${event.lngLat.lat.toFixed(5)} · LON ${event.lngLat.lng.toFixed(5)} · Z ${map?.getZoom().toFixed(1) ?? '—'}`;
+  173:   });
+  174:   map.on('click', (event) => {
+  175:     if (drawMode) {
+
+==================================================
+FILE: src\services\multi-agent-research.ts
+==================================================
+  250:     query: clean(input.query, 6000),
+  251:     scope: input.scope ?? 'workspace-research',
+  252:     liveRefresh: input.liveRefresh !== false,
+  253:     caseId: clean(input.caseId, 160) || undefined,
+  254:     caseTitle: clean(input.caseTitle, 240) || undefined,
+  255:     selectedAgents: Array.from(new Set(selectedAgents)),
+  256:     status: 'draft',
+  257:     createdAt: now,
+  258:     updatedAt: now,
+  259:     sources: [],
+  260:     results: Object.fromEntries(selectedAgents.map((agentId) => [agentId, { agentId, status: 'queued', content: '' }])) as Partial<Record<ResearchAgentId, ResearchAgentResult>>,
+  261:     finalReport: '',
+  262:   };
+  263:   const store = loadResearchMissionStore();
+  264:   store.missions.unshift(mission);
+  265:   store.activeMissionId = mission.id;
+  266:   saveStore(store);
+  267:   return mission;
+  268: }
+  269: 
+  270: export function updateResearchMission(missionId: string, changes: Partial<Omit<ResearchMission, 'id' | 'createdAt'>>): ResearchMission | null {
+  271:   const store = loadResearchMissionStore();
+  272:   const index = store.missions.findIndex((mission) => mission.id === missionId);
+  273:   if (index < 0) return null;
+  274:   const current = store.missions[index];
+  275:   const selectedAgents: ResearchAgentId[] = Array.isArray(changes.selectedAgents)
+  276:     ? changes.selectedAgents.filter(isAgentId)
+  277:     : current.selectedAgents;
+  278:   if (!selectedAgents.includes('briefing')) selectedAgents.push('briefing');
+  279:   const next: ResearchMission = {
+  280:     ...current,
+  281:     ...changes,
+  282:     title: changes.title !== undefined ? clean(changes.title, 160) || current.title : current.title,
+  283:     query: changes.query !== undefined ? clean(changes.query, 6000) : current.query,
+  284:     caseId: changes.caseId !== undefined ? clean(changes.caseId, 160) || undefined : current.caseId,
+  285:     caseTitle: changes.caseTitle !== undefined ? clean(changes.caseTitle, 240) || undefined : current.caseTitle,
+  286:     selectedAgents: Array.from(new Set(selectedAgents)),
+  287:     updatedAt: Date.now(),
+  288:   };
+  289:   store.missions[index] = next;
+  290:   store.activeMissionId = next.id;
+  291:   saveStore(store);
+  292:   return next;
+  293: }
+  294: 
+  295: export function deleteResearchMission(missionId: string): void {
+  296:   const store = loadResearchMissionStore();
+  297:   store.missions = store.missions.filter((mission) => mission.id !== missionId);
+  298:   if (store.activeMissionId === missionId) store.activeMissionId = store.missions[0]?.id;
+  299:   saveStore(store);
+  300: }
+  301: 
+  302: export function researchMissionToMarkdown(mission: ResearchMission): string {
+  303:   const sourceList = mission.sources.length
+  304:     ? mission.sources.map((source, index) => `### [S${index + 1}] ${source.title}\n\n${source.text || '_No excerpt saved._'}${source.url ? `\n\nURL: ${source.url}` : ''}`).join('\n\n')
+  305:     : '- No source snapshot was saved.';
+  306:   const agentSections = mission.selectedAgents.map((agentId) => {
+  307:     const definition = RESEARCH_AGENT_DEFINITIONS.find((agent) => agent.id === agentId);
+  308:     const result = mission.results[agentId];
+  309:     return `## ${definition?.label ?? agentId}\n\n${result?.content || result?.error || '_No output._'}`;
+  310:   }).join('\n\n');
+
+==================================================
+FILE: src\services\osint-tools.ts
+==================================================
+  135:     builtIn: true,
+  136:     category: 'network',
+  137:   },
+  138: ];
+  139: 
+  140: function safeParse<T>(value: string | null, fallback: T): T {
+  141:   if (!value) return fallback;
+  142:   try { return JSON.parse(value) as T; } catch { return fallback; }
+  143: }
+  144: 
+  145: function validateTool(tool: Partial<OsintToolDefinition>): OsintToolDefinition | null {
+  146:   const name = typeof tool.name === 'string' ? tool.name.trim().slice(0, 80) : '';
+  147:   const description = typeof tool.description === 'string' ? tool.description.trim().slice(0, 240) : '';
+  148:   const urlTemplate = typeof tool.urlTemplate === 'string' ? tool.urlTemplate.trim() : '';
+  149:   if (!name || !urlTemplate) return null;
+  150:   let url: URL;
+  151:   try {
+  152:     url = new URL(urlTemplate.replaceAll('{query}', 'test').replaceAll('{username}', 'test').replaceAll('{email}', 'test@example.com').replaceAll('{domain}', 'example.com').replaceAll('{ip}', '1.1.1.1').replaceAll('{phone}', '15555550123'));
+  153:   } catch {
+  154:     return null;
+  155:   }
+  156:   if (url.protocol !== 'https:') return null;
+  157:   const allowedTypes: OsintQueryType[] = ['username', 'email', 'domain', 'ip', 'phone', 'text'];
+  158:   const queryTypes = Array.isArray(tool.queryTypes) ? tool.queryTypes.filter((item): item is OsintQueryType => allowedTypes.includes(item as OsintQueryType)) : [];
+  159:   if (queryTypes.length === 0) return null;
+  160:   return {
+  161:     id: typeof tool.id === 'string' && tool.id.trim() ? tool.id.trim().slice(0, 80) : `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+  162:     name,
+  163:     description: description || 'Custom public-source lookup launcher.',
+  164:     queryTypes,
+  165:     urlTemplate,
+  166:     copyQueryFirst: Boolean(tool.copyQueryFirst),
+  167:     category: 'custom',
+  168:   };
+  169: }
+  170: 
+  171: export function getOsintTools(): OsintToolDefinition[] {
+  172:   const custom = safeParse<Partial<OsintToolDefinition>[]>(localStorage.getItem(TOOLS_KEY), [])
+  173:     .map(validateTool)
+  174:     .filter((item): item is OsintToolDefinition => Boolean(item));
+  175:   return [...BUILT_IN_TOOLS, ...custom];
+  176: }
+  177: 
+  178: export function saveCustomOsintTool(input: Partial<OsintToolDefinition>): OsintToolDefinition {
+  179:   const tool = validateTool(input);
+  180:   if (!tool) throw new Error('Enter a valid HTTPS URL template and at least one query type.');
+  181:   const custom = getOsintTools().filter((item) => !item.builtIn && item.id !== tool.id);
+  182:   custom.push(tool);
+  183:   localStorage.setItem(TOOLS_KEY, JSON.stringify(custom));
+  184:   return tool;
+  185: }
+  186: 
+  187: export function deleteCustomOsintTool(id: string): void {
+  188:   const custom = getOsintTools().filter((item) => !item.builtIn && item.id !== id);
+  189:   localStorage.setItem(TOOLS_KEY, JSON.stringify(custom));
+  190: }
+  191: 
+  192: export function exportOsintTools(): string {
+  193:   return JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), tools: getOsintTools().filter((item) => !item.builtIn) }, null, 2);
+  194: }
+  195: 
+  196: export function importOsintTools(value: string): number {
+  197:   const parsed = JSON.parse(value) as { tools?: Partial<OsintToolDefinition>[] } | Partial<OsintToolDefinition>[];
+  198:   const list = Array.isArray(parsed) ? parsed : parsed.tools;
+  199:   if (!Array.isArray(list)) throw new Error('The selected file does not contain an OSINT tool list.');
+  200:   let count = 0;
+  201:   for (const item of list) {
+  202:     if (validateTool(item)) {
+  203:       saveCustomOsintTool(item);
+  204:       count += 1;
+  205:     }
+  206:   }
+  207:   return count;
+  208: }
+  209: 
+  210: export function compileOsintUrl(tool: OsintToolDefinition, query: string, type: OsintQueryType): URL {
+  211:   const normalized = query.trim();
+  212:   if (!normalized) throw new Error('Enter a search value first.');
+  213:   const encoded = encodeURIComponent(normalized);
+  214:   const replacements: Record<string, string> = {
+  215:     '{query}': encoded,
+  216:     '{username}': encoded,
+  217:     '{email}': encoded,
+  218:     '{domain}': encoded,
+  219:     '{ip}': encoded,
+  220:     '{phone}': encoded,
+  221:   };
+  222:   let output = tool.urlTemplate;
+  223:   for (const [placeholder, value] of Object.entries(replacements)) output = output.replaceAll(placeholder, value);
+  224:   const url = new URL(output);
+  225:   if (url.protocol !== 'https:') throw new Error('Only HTTPS OSINT services are allowed.');
+  226:   if (!tool.queryTypes.includes(type)) throw new Error(`${tool.name} does not support ${type} searches.`);
+  227:   return url;
+  228: }
+  229: 
+  230: export function loadOsintHistory(): OsintSearchRecord[] {
+  231:   const history = safeParse<OsintSearchRecord[]>(localStorage.getItem(HISTORY_KEY), []);
+  232:   return history.filter((item) => item && typeof item.query === 'string' && typeof item.openedAt === 'number').slice(0, 50);
+  233: }
+  234: 
+  235: function recordHistory(tool: OsintToolDefinition, query: string, queryType: OsintQueryType): void {
+
+==================================================
+FILE: src\services\research-library.ts
+==================================================
+  205:     if (chunk) chunks.push(chunk);
+  206:     if (end >= text.length) break;
+  207:     start = Math.max(start + 1, end - CHUNK_OVERLAP);
+  208:   }
+  209:   return chunks;
+  210: }
+  211: 
+  212: async function extractPdf(file: File): Promise<{ text: string; pages: string[]; pageCount: number }> {
+  213:   const pdfjs = await import('pdfjs-dist');
+  214:   const workerModule = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+  215:   pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default;
+  216:   const data = new Uint8Array(await file.arrayBuffer());
+  217:   const pdf = await pdfjs.getDocument({ data }).promise;
+  218:   const pages: string[] = [];
+  219:   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+  220:     const page = await pdf.getPage(pageNumber);
+  221:     const content = await page.getTextContent();
+  222:     const text = content.items
+  223:       .map((item: { str?: string }) => item.str ?? '')
+  224:       .join(' ');
+  225:     pages.push(compactWhitespace(text));
+  226:   }
+  227:   return { text: pages.join('\n\n'), pages, pageCount: pdf.numPages };
+  228: }
+  229: 
+  230: async function extractFile(file: File, kind: ResearchDocumentKind): Promise<{ text: string; pages?: string[]; pageCount?: number }> {
+  231:   if (kind === 'pdf') return extractPdf(file);
+  232:   let text = await file.text();
+  233:   if (kind === 'html') text = stripHtml(text);
+  234:   if (kind === 'json') {
+  235:     try { text = JSON.stringify(JSON.parse(text), null, 2); } catch { /* retain malformed JSON as text */ }
+
+==================================================
+FILE: src\services\security-center.ts
+==================================================
+  150:   }
+  151: }
+  152: 
+  153: export function updateSecuritySettings(changes: Partial<ProjectVSecuritySettings>): ProjectVSecuritySettings {
+  154:   const next = normalizeSettings({ ...getSecuritySettings(), ...changes, version: 1 });
+  155:   localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+  156:   window.dispatchEvent(new CustomEvent('project-v-security-settings-change', { detail: next }));
+  157:   return next;
+  158: }
+  159: 
+  160: async function deriveHash(secret: string, salt: Uint8Array, iterations: number): Promise<string> {
+  161:   const material = await crypto.subtle.importKey(
+  162:     'raw',
+  163:     new TextEncoder().encode(secret),
+  164:     'PBKDF2',
+  165:     false,
+  166:     ['deriveBits'],
+  167:   );
+  168:   const bits = await crypto.subtle.deriveBits({
+  169:     name: 'PBKDF2',
+  170:     hash: 'SHA-256',
+  171:     salt,
+  172:     iterations,
+  173:   }, material, 256);
+  174:   return bytesToBase64(new Uint8Array(bits));
+  175: }
+  176: 
+  177: export async function setProjectVPin(pin: string): Promise<void> {
+  178:   const normalized = pin.trim();
+  179:   if (!/^\d{4,12}$/.test(normalized)) throw new Error('Use a numeric PIN containing four to twelve digits.');
+  180:   const salt = crypto.getRandomValues(new Uint8Array(16));
+  181:   const hash = await deriveHash(normalized, salt, PBKDF2_ITERATIONS);
+  182:   updateSecuritySettings({
+  183:     pin: {
+  184:       salt: bytesToBase64(salt),
+  185:       hash,
+  186:       iterations: PBKDF2_ITERATIONS,
+  187:     },
+  188:   });
+  189: }
+  190: 
+  191: export async function verifyProjectVPin(pin: string): Promise<boolean> {
+  192:   const verifier = getSecuritySettings().pin;
+  193:   if (!verifier) return true;
+  194:   const candidate = await deriveHash(pin.trim(), base64ToBytes(verifier.salt), verifier.iterations);
+  195:   if (candidate.length !== verifier.hash.length) return false;
+  196:   let mismatch = 0;
+  197:   for (let index = 0; index < candidate.length; index += 1) {
+  198:     mismatch |= candidate.charCodeAt(index) ^ verifier.hash.charCodeAt(index);
+  199:   }
+  200:   return mismatch === 0;
+  201: }
+  202: 
+  203: export function clearProjectVPin(): void {
+  204:   const next: ProjectVSecuritySettings = { ...getSecuritySettings() };
+  205:   delete next.pin;
+  206:   localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+  207:   window.dispatchEvent(new CustomEvent('project-v-security-settings-change', { detail: next }));
+  208: }
+  209: 
+  210: export function initializeSecuritySession(): void {
+  211:   if (sessionInitialized) return;
+  212:   sessionInitialized = true;
+  213:   previousSessionUnclean = localStorage.getItem(SESSION_MARKER_KEY) === 'active';
+  214:   localStorage.setItem(SESSION_MARKER_KEY, 'active');
+  215: 
+  216:   const settings = getSecuritySettings();
+  217:   if (settings.safeModeNextStart) {
+  218:     sessionStorage.setItem(SAFE_MODE_ACTIVE_KEY, 'true');
+  219:     updateSecuritySettings({ safeModeNextStart: false });
+  220:   }
+  221: 
+  222:   const clean = () => localStorage.setItem(SESSION_MARKER_KEY, 'clean');
+  223:   window.addEventListener('pagehide', clean, { once: true });
+  224:   window.addEventListener('beforeunload', clean, { once: true });
+  225:   installNetworkGuard();
+  226: }
+  227: 
+  228: export function wasPreviousSessionUnclean(): boolean {
+  229:   return previousSessionUnclean;
+  230: }
+  231: 
+  232: export function isProjectVSafeModeActive(): boolean {
+  233:   return sessionStorage.getItem(SAFE_MODE_ACTIVE_KEY) === 'true';
+  234: }
+  235: 
+  236: export function requestProjectVSafeModeNextStart(enabled: boolean): void {
+  237:   updateSecuritySettings({ safeModeNextStart: enabled });
+  238: }
+  239: 
+  240: export function clearProjectVSafeModeSession(): void {
+  241:   sessionStorage.removeItem(SAFE_MODE_ACTIVE_KEY);
+  242: }
+  243: 
+  244: function isLocalHost(hostname: string): boolean {
+  245:   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+  246: }
+  247: 
+  248: function isRequestAllowed(rawUrl: string, mode: ProjectVNetworkMode, allowedOrigins: string[]): boolean {
+  249:   if (mode === 'normal') return true;
+  250:   let url: URL;
+  251:   try {
+  252:     url = new URL(rawUrl, location.href);
+  253:   } catch {
+  254:     return false;
+  255:   }
+  256: 
+  257:   const local = isLocalHost(url.hostname);
+  258:   const sameOrigin = url.origin === location.origin;
+  259:   if (mode === 'restricted') {
+  260:     return local || sameOrigin || allowedOrigins.includes(url.origin);
+  261:   }
+  262: 
+  263:   if (local) return true;
+  264:   if (!sameOrigin) return false;
+  265:   if (url.pathname.startsWith('/api/')) {
+  266:     return url.pathname.startsWith('/api/local-') || url.pathname === '/api/health';
+  267:   }
+  268:   return mode !== 'disconnected' || !url.pathname.startsWith('/api/');
+  269: }
+  270: 
+  271: function auditBlocked(url: string, type: NetworkAuditRecord['type'], mode: ProjectVNetworkMode): void {
+  272:   networkAudit.unshift({ timestamp: Date.now(), url: url.slice(0, 500), type, mode });
+  273:   networkAudit.splice(NETWORK_AUDIT_LIMIT);
+  274:   window.dispatchEvent(new CustomEvent('project-v-network-blocked', { detail: networkAudit[0] }));
+  275: }
+  276: 
+  277: export function getNetworkAudit(): NetworkAuditRecord[] {
+  278:   return networkAudit.map((item) => ({ ...item }));
+  279: }
+  280: 
+  281: export function installNetworkGuard(): void {
+  282:   if (typeof window === 'undefined') return;
+  283:   if (!originalFetch) {
+  284:     originalFetch = window.fetch.bind(window);
+  285:     window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  286:       const rawUrl = typeof input === 'string' || input instanceof URL ? String(input) : input.url;
+  287:       const settings = getSecuritySettings();
+  288:       if (!isRequestAllowed(rawUrl, settings.networkMode, settings.allowedOrigins)) {
+  289:         auditBlocked(rawUrl, 'fetch', settings.networkMode);
+  290:         throw new DOMException(`Project V network policy blocked ${rawUrl}`, 'SecurityError');
+  291:       }
+  292:       return originalFetch!(input, init);
+  293:     }) as typeof window.fetch;
+  294:   }
+  295: 
+  296:   if (!originalWebSocket) {
+  297:     originalWebSocket = window.WebSocket;
+  298:     const NativeWebSocket = originalWebSocket;
+  299:     window.WebSocket = new Proxy(NativeWebSocket, {
+  300:       construct(target, args, newTarget) {
+  301:         const rawUrl = String(args[0] ?? '');
+  302:         const settings = getSecuritySettings();
+  303:         if (!isRequestAllowed(rawUrl, settings.networkMode, settings.allowedOrigins)) {
+  304:           auditBlocked(rawUrl, 'websocket', settings.networkMode);
+  305:           throw new DOMException(`Project V network policy blocked ${rawUrl}`, 'SecurityError');
+  306:         }
+  307:         return Reflect.construct(target, args, newTarget) as WebSocket;
+  308:       },
+  309:     }) as typeof WebSocket;
+  310:   }
+  311: }
+  312: 
+  313: export function setNetworkMode(mode: ProjectVNetworkMode): void {
+  314:   updateSecuritySettings({ networkMode: mode });
+  315: }
+  316: 
+  317: export function setAllowedNetworkOrigins(origins: string[]): void {
+  318:   updateSecuritySettings({ allowedOrigins: normalizeOrigins(origins) });
+  319: }
+  320: 
+  321: function shouldBackupKey(key: string): boolean {
+  322:   if (EXCLUDED_BACKUP_KEYS.has(key)) return false;
+  323:   return key.startsWith('project-v-')
+  324:     || key.startsWith('worldmonitor-')
+  325:     || key.startsWith('mobile-')
+  326:     || key === 'panel-order';
+  327: }
+  328: 
+  329: function collectLocalStorage(): Record<string, string> {
+  330:   const result: Record<string, string> = {};
+  331:   for (let index = 0; index < localStorage.length; index += 1) {
+  332:     const key = localStorage.key(index);
+  333:     if (!key || !shouldBackupKey(key)) continue;
+  334:     const value = localStorage.getItem(key);
+  335:     if (value === null) continue;
+  336:     if (key === SETTINGS_KEY) {
+  337:       try {
+  338:         const sanitized = normalizeSettings(JSON.parse(value));
+  339:         delete sanitized.pin;
+  340:         result[key] = JSON.stringify(sanitized);
+  341:       } catch {
+  342:         // Never export a malformed security record that may contain sensitive values.
+  343:       }
+  344:       continue;
+  345:     }
+  346:     result[key] = value;
+  347:   }
+  348:   return result;
+  349: }
+  350: 
+  351: export async function createProjectVBackup(kind: 'configuration' | 'full'): Promise<ProjectVBackup> {
+  352:   const backup: ProjectVBackup = {
+  353:     schema: 'project-v-watchtower-backup',
+  354:     version: 1,
+  355:     createdAt: Date.now(),
+  356:     appVersion: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown',
+  357:     kind,
+  358:     localStorage: collectLocalStorage(),
+  359:   };
+  360:   if (kind === 'full') {
+  361:     [backup.research, backup.cases, backup.dataDesk] = await Promise.all([
+  362:       exportResearchLibrary(),
+  363:       exportCaseDesk(),
+  364:       exportDataDesk(),
+  365:     ]);
+  366:   }
+  367:   updateSecuritySettings({ lastBackupAt: backup.createdAt });
+  368:   return backup;
+  369: }
+  370: 
+  371: export function saveLastGoodConfiguration(): void {
+  372:   const snapshot = {
+  373:     schema: 'project-v-last-good-configuration',
+  374:     version: 1,
+  375:     createdAt: Date.now(),
+  376:     localStorage: collectLocalStorage(),
+  377:   };
+  378:   try {
+  379:     localStorage.setItem(LAST_GOOD_KEY, JSON.stringify(snapshot));
+  380:   } catch {
+  381:     // A restore point is helpful but must never prevent startup.
+  382:   }
+  383: }
+  384: 
+  385: export function hasLastGoodConfiguration(): boolean {
+  386:   return Boolean(localStorage.getItem(LAST_GOOD_KEY));
+  387: }
+  388: 
+  389: export function restoreLastGoodConfiguration(): void {
+  390:   const raw = localStorage.getItem(LAST_GOOD_KEY);
+  391:   if (!raw) throw new Error('No last-known-good configuration is available.');
+  392:   const parsed = JSON.parse(raw) as { schema?: string; localStorage?: Record<string, string> };
+  393:   if (parsed.schema !== 'project-v-last-good-configuration' || !parsed.localStorage) {
+  394:     throw new Error('The last-known-good configuration is invalid.');
+  395:   }
+  396:   restoreLocalStorage(parsed.localStorage);
+  397: }
+  398: 
+  399: function restoreLocalStorage(entries: Record<string, string>): void {
+  400:   const preservedSecrets = localStorage.getItem('project-v-local-runtime-secrets-v1');
+  401:   const preservedPin = getSecuritySettings().pin;
+  402:   for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+  403:     const key = localStorage.key(index);
+  404:     if (key && shouldBackupKey(key)) localStorage.removeItem(key);
+  405:   }
+  406:   for (const [key, value] of Object.entries(entries)) {
+  407:     if (!shouldBackupKey(key) || typeof value !== 'string') continue;
+  408:     if (key === SETTINGS_KEY) {
+  409:       try {
+  410:         const restored = normalizeSettings(JSON.parse(value));
+  411:         if (preservedPin) restored.pin = preservedPin;
+  412:         localStorage.setItem(key, JSON.stringify(restored));
+  413:       } catch {
+  414:         // Ignore malformed security settings while restoring the remaining archive.
+  415:       }
+  416:       continue;
+  417:     }
+  418:     localStorage.setItem(key, value);
+  419:   }
+  420:   if (preservedPin && !localStorage.getItem(SETTINGS_KEY)) {
+  421:     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, pin: preservedPin }));
+  422:   }
+  423:   if (preservedSecrets !== null) localStorage.setItem('project-v-local-runtime-secrets-v1', preservedSecrets);
+  424: }
+  425: 
+  426: export async function restoreProjectVBackup(value: unknown): Promise<{ researchDocuments: number; researchExcerpts: number; cases: number; workbooks: number }> {
+  427:   if (!value || typeof value !== 'object') throw new Error('This is not a Project V backup.');
+  428:   const backup = value as Partial<ProjectVBackup>;
+  429:   if (backup.schema !== 'project-v-watchtower-backup' || backup.version !== 1 || !backup.localStorage) {
+  430:     throw new Error('This backup format is not supported.');
+  431:   }
+  432:   saveLastGoodConfiguration();
+  433:   restoreLocalStorage(backup.localStorage);
+  434:   let researchDocuments = 0;
+  435:   let researchExcerpts = 0;
+  436:   if (backup.research) {
+  437:     const result = await importResearchLibrarySnapshot(backup.research);
+  438:     researchDocuments = result.documents;
+  439:     researchExcerpts = result.excerpts;
+  440:   }
+  441:   if (backup.cases) await importCaseDesk(backup.cases);
+  442:   const workbooks = backup.dataDesk ? await importDataDeskSnapshot(backup.dataDesk) : 0;
+  443:   return { researchDocuments, researchExcerpts, cases: backup.cases?.cases.length ?? 0, workbooks };
+  444: }
+  445: 
+  446: async function deriveEncryptionKey(passphrase: string, salt: Uint8Array, iterations: number): Promise<CryptoKey> {
+  447:   const material = await crypto.subtle.importKey(
+  448:     'raw',
+  449:     new TextEncoder().encode(passphrase),
+  450:     'PBKDF2',
+  451:     false,
+  452:     ['deriveKey'],
+  453:   );
+  454:   return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, material, {
+  455:     name: 'AES-GCM',
+  456:     length: 256,
+  457:   }, false, ['encrypt', 'decrypt']);
+  458: }
+  459: 
+  460: export async function serializeBackup(backup: ProjectVBackup, passphrase?: string): Promise<string> {
+  461:   const json = JSON.stringify(backup, null, passphrase ? 0 : 2);
+  462:   if (!passphrase) return json;
+  463:   if (passphrase.length < 8) throw new Error('Protected backups require a passphrase of at least eight characters.');
+  464:   const salt = crypto.getRandomValues(new Uint8Array(16));
+  465:   const iv = crypto.getRandomValues(new Uint8Array(12));
+  466:   const key = await deriveEncryptionKey(passphrase, salt, PBKDF2_ITERATIONS);
+  467:   const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(json));
+  468:   const encrypted: EncryptedBackup = {
+  469:     schema: 'project-v-watchtower-encrypted-backup',
+  470:     version: 1,
+  471:     createdAt: Date.now(),
+  472:     algorithm: 'AES-GCM',
+  473:     kdf: 'PBKDF2-SHA256',
+  474:     iterations: PBKDF2_ITERATIONS,
+  475:     salt: bytesToBase64(salt),
+  476:     iv: bytesToBase64(iv),
+  477:     ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
+  478:   };
+  479:   return JSON.stringify(encrypted, null, 2);
+  480: }
+  481: 
+  482: export async function parseBackup(serialized: string, passphrase?: string): Promise<ProjectVBackup> {
+  483:   const parsed = JSON.parse(serialized) as Record<string, unknown>;
+  484:   if (parsed.schema === 'project-v-watchtower-backup') return parsed as unknown as ProjectVBackup;
+  485:   if (parsed.schema !== 'project-v-watchtower-encrypted-backup') throw new Error('This is not a Project V backup.');
+  486:   if (!passphrase) throw new Error('This backup is encrypted and requires its passphrase.');
+  487:   const salt = base64ToBytes(String(parsed.salt ?? ''));
+  488:   const iv = base64ToBytes(String(parsed.iv ?? ''));
+  489:   const ciphertext = base64ToBytes(String(parsed.ciphertext ?? ''));
+  490:   const key = await deriveEncryptionKey(passphrase, salt, Number(parsed.iterations) || PBKDF2_ITERATIONS);
+  491:   try {
+  492:     const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+  493:     return JSON.parse(new TextDecoder().decode(plaintext)) as ProjectVBackup;
+  494:   } catch {
+  495:     throw new Error('The backup passphrase is incorrect or the file is damaged.');
+  496:   }
+  497: }
+  498: 
+  499: export function desktopSecretVaultAvailable(): boolean {
+  500:   return hasTauriInvokeBridge();
+  501: }
+
+==================================================
+FILE: src\services\xlsx-lite.ts
+==================================================
+   20: function parseXml(bytes: Uint8Array): Document {
+   21:   const document = new DOMParser().parseFromString(textDecoder.decode(bytes), 'application/xml');
+   22:   if (document.querySelector('parsererror')) throw new Error('The workbook contains invalid XML.');
+   23:   return document;
+   24: }
+   25: 
+   26: function readU16(view: DataView, offset: number): number {
+   27:   return view.getUint16(offset, true);
+   28: }
+   29: 
+   30: function readU32(view: DataView, offset: number): number {
+   31:   return view.getUint32(offset, true);
+   32: }
+   33: 
+   34: async function inflateRaw(bytes: Uint8Array): Promise<Uint8Array> {
+   35:   if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot decompress XLSX files. Use the desktop runtime or a current Chromium browser.');
+   36:   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+   37:   return new Uint8Array(await new Response(stream).arrayBuffer());
+   38: }
+   39: 
+   40: async function unzip(buffer: ArrayBuffer): Promise<Map<string, Uint8Array>> {
+   41:   const bytes = new Uint8Array(buffer);
+   42:   const view = new DataView(buffer);
+   43:   let eocd = -1;
+   44:   for (let offset = bytes.length - 22; offset >= Math.max(0, bytes.length - 65_557); offset -= 1) {
+   45:     if (readU32(view, offset) === 0x06054b50) { eocd = offset; break; }
+   46:   }
+   47:   if (eocd < 0) throw new Error('The XLSX ZIP directory could not be found.');
+   48:   const entryCount = readU16(view, eocd + 10);
+   49:   let cursor = readU32(view, eocd + 16);
+   50:   const files = new Map<string, Uint8Array>();
+   51:   for (let index = 0; index < entryCount; index += 1) {
+   52:     if (readU32(view, cursor) !== 0x02014b50) throw new Error('The XLSX ZIP directory is damaged.');
+   53:     const method = readU16(view, cursor + 10);
+   54:     const compressedSize = readU32(view, cursor + 20);
+   55:     const fileNameLength = readU16(view, cursor + 28);
+   56:     const extraLength = readU16(view, cursor + 30);
+   57:     const commentLength = readU16(view, cursor + 32);
+   58:     const localOffset = readU32(view, cursor + 42);
+   59:     const name = textDecoder.decode(bytes.slice(cursor + 46, cursor + 46 + fileNameLength));
+   60:     if (readU32(view, localOffset) !== 0x04034b50) throw new Error(`The XLSX entry ${name} is damaged.`);
+   61:     const localNameLength = readU16(view, localOffset + 26);
+   62:     const localExtraLength = readU16(view, localOffset + 28);
+   63:     const dataOffset = localOffset + 30 + localNameLength + localExtraLength;
+   64:     const compressed = bytes.slice(dataOffset, dataOffset + compressedSize);
+   65:     let content: Uint8Array;
+   66:     if (method === 0) content = compressed;
+   67:     else if (method === 8) content = await inflateRaw(compressed);
+   68:     else throw new Error(`Unsupported XLSX compression method ${method}.`);
+   69:     files.set(name.replace(/^\//, ''), content);
+   70:     cursor += 46 + fileNameLength + extraLength + commentLength;
+   71:   }
+   72:   return files;
+   73: }
+   74: 
+   75: function columnIndex(reference: string): number {
+   76:   const match = reference.match(/^([A-Z]+)\d+$/i);
+   77:   if (!match) return 0;
+   78:   let result = 0;
+   79:   for (const character of match[1]!.toUpperCase()) result = result * 26 + character.charCodeAt(0) - 64;
+   80:   return result - 1;
+   81: }
+   82: 
+   83: function rowIndex(reference: string): number {
+   84:   const match = reference.match(/^[A-Z]+(\d+)$/i);
+   85:   return Math.max(0, Number.parseInt(match?.[1] ?? '1', 10) - 1);
+   86: }
+   87: 
+   88: export function cellReference(row: number, column: number): string {
+   89:   let value = column + 1;
+   90:   let letters = '';
+   91:   while (value > 0) {
+   92:     const remainder = (value - 1) % 26;
+   93:     letters = String.fromCharCode(65 + remainder) + letters;
+   94:     value = Math.floor((value - 1) / 26);
+   95:   }
+   96:   return `${letters}${row + 1}`;
+   97: }
+   98: 
+   99: function allText(element: Element | null): string {
+  100:   if (!element) return '';
+  101:   return Array.from(element.getElementsByTagName('t')).map((node) => node.textContent ?? '').join('');
+  102: }
+  103: 
+  104: function resolveTarget(target: string): string {
+  105:   const clean = target.replace(/^\//, '');
+  106:   if (clean.startsWith('xl/')) return clean;
+  107:   const parts = ['xl', ...clean.split('/')];
+  108:   const normalized: string[] = [];
+  109:   for (const part of parts) {
+  110:     if (part === '..') normalized.pop();
+  111:     else if (part && part !== '.') normalized.push(part);
+  112:   }
+  113:   return normalized.join('/');
+  114: }
+  115: 
+  116: export async function parseXlsx(file: File): Promise<LiteWorkbook> {
+  117:   const files = await unzip(await file.arrayBuffer());
+  118:   const workbookBytes = files.get('xl/workbook.xml');
+  119:   if (!workbookBytes) throw new Error('The workbook.xml file is missing.');
+  120:   const workbookXml = parseXml(workbookBytes);
+  121:   const relBytes = files.get('xl/_rels/workbook.xml.rels');
+  122:   const relationships = new Map<string, string>();
+  123:   if (relBytes) {
+  124:     const relXml = parseXml(relBytes);
+  125:     for (const relationship of Array.from(relXml.getElementsByTagName('Relationship'))) {
+  126:       const relationId = relationship.getAttribute('Id');
+  127:       const target = relationship.getAttribute('Target');
+  128:       if (relationId && target) relationships.set(relationId, resolveTarget(target));
+  129:     }
+  130:   }
+  131:   const sharedStrings: string[] = [];
+  132:   const sharedBytes = files.get('xl/sharedStrings.xml');
+  133:   if (sharedBytes) {
+  134:     const sharedXml = parseXml(sharedBytes);
+  135:     for (const stringItem of Array.from(sharedXml.getElementsByTagName('si'))) sharedStrings.push(allText(stringItem));
+  136:   }
+  137:   const sheets: LiteSheet[] = [];
+  138:   const sheetElements = Array.from(workbookXml.getElementsByTagName('sheet'));
+  139:   for (let sheetIndex = 0; sheetIndex < sheetElements.length; sheetIndex += 1) {
+  140:     const sheetElement = sheetElements[sheetIndex]!;
+  141:     const name = sheetElement.getAttribute('name') || `Sheet ${sheetIndex + 1}`;
+  142:     const relationId = sheetElement.getAttribute('r:id') || sheetElement.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+  143:     const path = (relationId && relationships.get(relationId)) || `xl/worksheets/sheet${sheetIndex + 1}.xml`;
+  144:     const sheetBytes = files.get(path);
+  145:     if (!sheetBytes) continue;
+  146:     const sheetXml = parseXml(sheetBytes);
+  147:     const rows: string[][] = [];
+  148:     const formulas: Record<string, string> = {};
+  149:     for (const cell of Array.from(sheetXml.getElementsByTagName('c'))) {
+  150:       const reference = cell.getAttribute('r') || 'A1';
+  151:       const r = rowIndex(reference);
+  152:       const c = columnIndex(reference);
+  153:       rows[r] ??= [];
+  154:       while (rows[r]!.length <= c) rows[r]!.push('');
+  155:       const type = cell.getAttribute('t') || 'n';
+  156:       const value = cell.getElementsByTagName('v')[0]?.textContent ?? '';
+  157:       const formula = cell.getElementsByTagName('f')[0]?.textContent ?? '';
+  158:       if (formula) formulas[reference.toUpperCase()] = formula;
+  159:       let rendered = value;
+  160:       if (type === 's') rendered = sharedStrings[Number.parseInt(value, 10)] ?? '';
+  161:       else if (type === 'inlineStr') rendered = allText(cell.getElementsByTagName('is')[0] ?? null);
+  162:       else if (type === 'b') rendered = value === '1' ? 'TRUE' : 'FALSE';
+  163:       rows[r]![c] = rendered;
+  164:     }
+  165:     sheets.push({ id: `sheet-${sheetIndex + 1}-${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`, name, rows: rows.length ? rows : [['']], formulas });
+  166:   }
+  167:   if (!sheets.length) throw new Error('No worksheets were found in the XLSX file.');
+  168:   return { title: file.name.replace(/\.xlsx$/i, ''), sheets };
+  169: }
+  170: 
+  171: export function parseCsv(text: string, name = 'Sheet 1'): LiteSheet {
+  172:   const rows: string[][] = [];
+  173:   let row: string[] = [];
+  174:   let field = '';
+  175:   let quoted = false;
+  176:   for (let index = 0; index < text.length; index += 1) {
+  177:     const character = text[index]!;
+  178:     if (quoted) {
+  179:       if (character === '"' && text[index + 1] === '"') { field += '"'; index += 1; }
+  180:       else if (character === '"') quoted = false;
+  181:       else field += character;
+  182:     } else if (character === '"') quoted = true;
+  183:     else if (character === ',') { row.push(field); field = ''; }
+  184:     else if (character === '\n') { row.push(field.replace(/\r$/, '')); rows.push(row); row = []; field = ''; }
+  185:     else field += character;
+  186:   }
+  187:   row.push(field.replace(/\r$/, ''));
+  188:   if (row.length > 1 || row[0]) rows.push(row);
+  189:   return { id: `sheet-${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`, name, rows: rows.length ? rows : [['']], formulas: {} };
+  190: }
+  191: 
+  192: function crc32(bytes: Uint8Array): number {
+  193:   let crc = 0xffffffff;
+  194:   for (const byte of bytes) {
+  195:     crc ^= byte;
+  196:     for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  197:   }
+  198:   return (crc ^ 0xffffffff) >>> 0;
+  199: }
+  200: 
+  201: function concat(parts: Uint8Array[]): Uint8Array {
+  202:   const length = parts.reduce((sum, part) => sum + part.length, 0);
+  203:   const output = new Uint8Array(length);
+  204:   let offset = 0;
+  205:   for (const part of parts) { output.set(part, offset); offset += part.length; }
+  206:   return output;
+  207: }
+  208: 
+  209: function zipStore(entries: Array<{ name: string; data: Uint8Array }>): Uint8Array {
+  210:   const localParts: Uint8Array[] = [];
+  211:   const centralParts: Uint8Array[] = [];
+  212:   let offset = 0;
+  213:   for (const entry of entries) {
+  214:     const name = textEncoder.encode(entry.name);
+  215:     const crc = crc32(entry.data);
+  216:     const local = new Uint8Array(30 + name.length + entry.data.length);
+  217:     const localView = new DataView(local.buffer);
+  218:     localView.setUint32(0, 0x04034b50, true);
+  219:     localView.setUint16(4, 20, true);
+  220:     localView.setUint16(6, 0x0800, true);
+  221:     localView.setUint16(8, 0, true);
+  222:     localView.setUint32(14, crc, true);
+  223:     localView.setUint32(18, entry.data.length, true);
+  224:     localView.setUint32(22, entry.data.length, true);
+  225:     localView.setUint16(26, name.length, true);
+  226:     local.set(name, 30);
+  227:     local.set(entry.data, 30 + name.length);
+  228:     localParts.push(local);
+  229: 
+  230:     const central = new Uint8Array(46 + name.length);
+  231:     const centralView = new DataView(central.buffer);
+  232:     centralView.setUint32(0, 0x02014b50, true);
+  233:     centralView.setUint16(4, 20, true);
+  234:     centralView.setUint16(6, 20, true);
+  235:     centralView.setUint16(8, 0x0800, true);
+  236:     centralView.setUint16(10, 0, true);
+  237:     centralView.setUint32(16, crc, true);
+  238:     centralView.setUint32(20, entry.data.length, true);
+  239:     centralView.setUint32(24, entry.data.length, true);
+  240:     centralView.setUint16(28, name.length, true);
+  241:     centralView.setUint32(42, offset, true);
+  242:     central.set(name, 46);
+  243:     centralParts.push(central);
+  244:     offset += local.length;
+  245:   }
+  246:   const central = concat(centralParts);
+  247:   const eocd = new Uint8Array(22);
+  248:   const eocdView = new DataView(eocd.buffer);
+  249:   eocdView.setUint32(0, 0x06054b50, true);
+  250:   eocdView.setUint16(8, entries.length, true);
+  251:   eocdView.setUint16(10, entries.length, true);
+  252:   eocdView.setUint32(12, central.length, true);
+  253:   eocdView.setUint32(16, offset, true);
+  254:   return concat([...localParts, central, eocd]);
+  255: }
+  256: 
+  257: function contentTypeXml(sheetCount: number): string {
+  258:   const sheetOverrides = Array.from({ length: sheetCount }, (_, index) => `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('');
+  259:   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheetOverrides}<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`;
+  260: }
+  261: 
+  262: function worksheetXml(sheet: LiteSheet): string {
+  263:   const rows = sheet.rows.map((row, rowIndexValue) => {
+  264:     const cells = row.map((value, column) => {
+  265:       const reference = cellReference(rowIndexValue, column);
+  266:       const formula = sheet.formulas[reference];
+  267:       if (formula) return `<c r="${reference}"><f>${xmlEscape(formula)}</f><v>${xmlEscape(value)}</v></c>`;
+  268:       const trimmed = value.trim();
+  269:       if (trimmed !== '' && /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(trimmed)) return `<c r="${reference}"><v>${trimmed}</v></c>`;
+  270:       if (/^(TRUE|FALSE)$/i.test(trimmed)) return `<c r="${reference}" t="b"><v>${/^TRUE$/i.test(trimmed) ? '1' : '0'}</v></c>`;
+  271:       return `<c r="${reference}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
+  272:     }).join('');
+  273:     return `<row r="${rowIndexValue + 1}">${cells}</row>`;
+  274:   }).join('');
+  275:   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rows}</sheetData></worksheet>`;
+  276: }
+  277: 
+  278: export function createXlsx(workbook: LiteWorkbook): Blob {
+  279:   const now = new Date().toISOString();
+  280:   const sheetRecords = workbook.sheets.map((sheet, index) => `<sheet name="${xmlEscape(sheet.name.slice(0, 31) || `Sheet ${index + 1}`)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join('');
+  281:   const relationships = workbook.sheets.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join('');
+  282:   const entries: Array<{ name: string; data: Uint8Array }> = [
+  283:     { name: '[Content_Types].xml', data: textEncoder.encode(contentTypeXml(workbook.sheets.length)) },
+  284:     { name: '_rels/.rels', data: textEncoder.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>') },
+  285:     { name: 'xl/workbook.xml', data: textEncoder.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheetRecords}</sheets></workbook>`) },
+  286:     { name: 'xl/_rels/workbook.xml.rels', data: textEncoder.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relationships}<Relationship Id="rId${workbook.sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`) },
+  287:     { name: 'xl/styles.xml', data: textEncoder.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="1"><xf xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>') },
+  288:     { name: 'docProps/core.xml', data: textEncoder.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xmlEscape(workbook.title)}</dc:title><dc:creator>Project V Watchtower</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`) },
+  289:     { name: 'docProps/app.xml', data: textEncoder.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Project V Watchtower</Application><AppVersion>1.0</AppVersion></Properties>`) },
+  290:   ];
+  291:   workbook.sheets.forEach((sheet, index) => entries.push({ name: `xl/worksheets/sheet${index + 1}.xml`, data: textEncoder.encode(worksheetXml(sheet)) }));
+  292:   return new Blob([zipStore(entries)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  293: }
+  294: 
+  295: export function createCsv(sheet: LiteSheet): Blob {
+  296:   const text = sheet.rows.map((row) => row.map((value) => /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value).join(',')).join('\r\n');
+  297:   return new Blob([text], { type: 'text/csv;charset=utf-8' });
+  298: }
+
+==================================================
+INSTALLED VERSIONS
+==================================================
+project-v-watchtower@1.0.0 E:\PROJECTS\worldmonitor-2.5.23
++-- i18next@25.8.10
+| `-- typescript@5.9.3 deduped
++-- maplibre-gl@5.16.0
++-- pdfjs-dist@4.10.38
++-- typescript@5.9.3
++-- vite-plugin-pwa@1.2.0
+| `-- vite@6.4.1 deduped
+`-- vite@6.4.1
+

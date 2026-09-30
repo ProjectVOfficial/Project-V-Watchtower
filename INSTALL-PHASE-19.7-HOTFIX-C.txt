@@ -1,0 +1,30 @@
+PROJECT V // WATCHTOWER
+PHASE 19.7 LIVE LANGUAGE — HOTFIX C
+
+Purpose
+-------
+Moves Live Language only from legacy @xenova/transformers 2.17.2 to the maintained
+@huggingface/transformers 4.2.0 runtime. The rest of Watchtower's existing ML worker
+continues using @xenova/transformers for now, minimizing regression risk.
+
+Install
+-------
+1. Close Watchtower.
+2. Copy this package's package.json and src folder into:
+   E:\PROJECTS\worldmonitor-2.5.23
+   Choose Replace files in destination.
+3. Open PowerShell in E:\PROJECTS\worldmonitor-2.5.23 and run:
+
+   npm install
+   npm run typecheck
+   npm run desktop:dev
+
+First test
+----------
+Open Live Language and use:
+  SOURCE: MICROPHONE
+  TRANSLATE TO: ORIGINAL LANGUAGE
+  DISPLAY: BOTH
+
+The first model load requires internet access to Hugging Face and may take time.
+Ollama / llama-server is not required for transcription.

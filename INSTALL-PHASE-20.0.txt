@@ -1,0 +1,52 @@
+PROJECT V // WATCHTOWER
+PHASE 20.0 — MAP 2.0 FOUNDATION
+
+TARGET SOURCE ROOT
+E:\PROJECTS\worldmonitor-2.5.23
+
+INSTALL
+1. Close Watchtower.
+2. Extract this ZIP.
+3. Copy the included src folder into:
+   E:\PROJECTS\worldmonitor-2.5.23
+4. Choose Replace files in destination.
+5. Open PowerShell in the project root and run:
+
+   npm run typecheck
+
+6. If typecheck is clean, run:
+
+   npm run desktop:dev
+
+FIRST TEST
+- Open the main Watchtower map.
+- A MAP 2.0 // SITUATIONAL DECK strip should appear over the map.
+- Test CRISIS, MILITARY, AIR, INFRA, CYBER, then ALL.
+- Pan/zoom to a regional view, click SAVE VIEW, name it, move elsewhere,
+  then select the saved view to confirm center/zoom/basemap/time/layers restore.
+
+LIVE AIR TEST
+- Click AIR or LIVE AIR.
+- At global/low zoom the deck intentionally says ZOOM IN >= 3.
+- Zoom to a region. Status should move through LOADING to an aircraft count.
+- Live Air uses the existing Watchtower OpenSky relay and only requests the
+  visible bounding box while the layer is enabled.
+- Click an aircraft marker to open the aircraft inspector.
+- Test FOLLOW, TRACK, WATCH, INTEL, and ADD TO CASE.
+- WATCH state and saved views persist locally.
+
+QUOTA-AWARE POLLING
+- Normal Live Air refresh: about every 2 minutes.
+- While actively FOLLOWING a selected aircraft: about every 30 seconds.
+- Map movement never forces requests more often than the 30-second floor.
+
+EXPECTED FALLBACKS
+- RELAY OFFLINE: the Watchtower OpenSky relay is unavailable, disabled,
+  unauthenticated/rate-limited, or returned a non-JSON response.
+- No aircraft count: the visible region may have no OpenSky state vectors.
+- The rest of Map 2.0 remains usable even when Live Air is unavailable.
+
+NOTES
+- Aircraft identity/mission is not inferred from callsign alone.
+- Position data may be delayed, incomplete, or absent.
+- This phase does not embed an external flight-tracking website.

@@ -1,0 +1,9 @@
+PROJECT V WATCHTOWER — PHASE 20.7.1
+
+1. Stop Watchtower.
+2. Copy the included src folder over the current Watchtower source root.
+3. Replace files in destination.
+4. Run: npm run typecheck
+5. Run: npm run desktop:dev
+6. Open MODULES -> WATCHLISTS -> PHOENIX SENTINELS.
+7. Press TEST on an armed Sentinel.

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "projectv.tools.system-pulse",
+  "name": "System Pulse",
+  "version": "1.0.0",
+  "description": "A lightweight local clock and session-status module for the command deck.",
+  "author": "Project V",
+  "category": "system",
+  "icon": "◉",
+  "defaultSize": { "w": 4, "h": 3 },
+  "minSize": { "w": 3, "h": 2 },
+  "permissions": [],
+  "entry": {
+    "type": "sandbox-html",
+    "html": "<main><p>PROJECT V // WATCHTOWER</p><div id=\"clock\">--:--:--</div><span>LOCAL MODULE BUS ACTIVE</span></main>",
+    "css": ":root{color-scheme:dark;font-family:monospace;background:#090909;color:#e9dfd2}body{margin:0;padding:14px}p,span{font-size:9px;letter-spacing:.14em;color:#956363}#clock{margin:14px 0;font-size:34px;letter-spacing:.08em;color:#eee}",
+    "script": "function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString([], {hour12:false})}tick();setInterval(tick,1000);"
+  }
+}

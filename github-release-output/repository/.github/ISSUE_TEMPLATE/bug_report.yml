@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a reproducible Project V Watchtower defect
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include API keys, private research, personal data, passwords, or unredacted security details.
+  - type: input
+    id: version
+    attributes:
+      label: Project V version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: installer
+    attributes:
+      label: Installation type
+      options:
+        - NSIS Setup.exe
+        - MSI
+        - Development build
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2 x64
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted error text
+      description: Remove secrets and personal data before posting.

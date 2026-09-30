@@ -1,0 +1,30 @@
+PROJECT V WATCHTOWER — PHASE 20.1 HOTFIX C
+AIR OPS COMMAND VIEW + LIVE FEED RESILIENCE
+
+INSTALL ORDER
+This hotfix is intended to be installed AFTER Phase 20.1 Hotfix A and Hotfix B.
+It preserves the permanent EDIT DECK fix from Hotfix B.
+
+INSTALL
+1. Stop npm run desktop:dev.
+2. Back up your current Project V Watchtower folder.
+3. Open this ZIP.
+4. Drag the included src folder into the ROOT of your Watchtower project.
+5. Merge folders and replace the four matching files when prompted.
+6. Start npm run desktop:dev again.
+
+TEST
+1. Click AIR OPS on Map 2.0.
+   Expected: Air Operations opens as a focused in-app command surface instead of scrolling to a panel at the bottom of Live Ops.
+2. Press Escape or click RETURN TO DECK.
+   Expected: the focused Air Operations view closes and returns to the normal deck.
+3. Open MODULES, search air.
+   Expected: the docked AIR OPERATIONS MAP card has an OPEN action in addition to REMOVE.
+4. Confirm EDIT DECK is still beside LAYOUT and panel movement/resizing still works.
+5. If ADSB.lol is rate-limited, existing contacts remain visible as LAST KNOWN and Watchtower attempts the configured automatic fallback rather than treating the entire command view as dead.
+
+FILES REPLACED
+src/app/panel-layout.ts
+src/components/AirOperationsPanel.ts
+src/services/map-2.ts
+src/styles/air-operations.css

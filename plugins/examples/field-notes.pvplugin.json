@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "projectv.tools.field-notes",
+  "name": "Field Notes",
+  "version": "1.0.0",
+  "description": "A private per-device scratchpad using the Project V plugin storage bridge.",
+  "author": "Project V",
+  "category": "research",
+  "icon": "✎",
+  "defaultSize": { "w": 4, "h": 4 },
+  "minSize": { "w": 3, "h": 3 },
+  "permissions": ["storage"],
+  "entry": {
+    "type": "sandbox-html",
+    "html": "<main><p class=\"kicker\">PROJECT V // LOCAL</p><h1>FIELD NOTES</h1><textarea id=\"notes\" placeholder=\"Write operational notes here...\"></textarea><p id=\"status\">READY</p></main>",
+    "css": ":root{color-scheme:dark;font-family:monospace;background:#090909;color:#e9dfd2}body{margin:0;padding:14px}h1{font-size:16px;color:#d36d6d}.kicker,#status{font-size:9px;letter-spacing:.14em;color:#956363}textarea{box-sizing:border-box;width:100%;min-height:180px;padding:10px;border:1px solid #3c2a2a;background:#070707;color:#eee;resize:none}",
+    "script": "const box=document.getElementById('notes');const status=document.getElementById('status');ProjectV.storage.get('notes').then(value=>box.value=typeof value==='string'?value:'');let timer;box.addEventListener('input',()=>{status.textContent='UNSAVED';clearTimeout(timer);timer=setTimeout(async()=>{await ProjectV.storage.set('notes',box.value);status.textContent='SAVED'},350)});"
+  }
+}

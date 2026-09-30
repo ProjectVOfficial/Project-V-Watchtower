@@ -1,0 +1,61 @@
+PROJECT V WATCHTOWER — GITHUB RELEASE KIT 1.0.0
+
+Purpose
+-------
+This kit creates a documentation-focused GitHub repository and a GitHub Release
+containing:
+
+- Project V Watchtower Windows NSIS installer
+- Project V Watchtower Windows MSI installer
+- SHA-256 checksums
+- Corresponding source-code archive
+- Release notes
+- README, white paper, security, privacy, installation, architecture, threat
+  model, data/AI, roadmap, support, contribution, and license/upstream documents
+- GitHub issue templates
+
+Recommended workflow
+--------------------
+1. Extract this entire folder into:
+   E:\PROJECTS\worldmonitor-2.5.23\Project-V-Watchtower-GitHub-Release-Kit-1.0.0
+
+2. Open PowerShell in:
+   E:\PROJECTS\worldmonitor-2.5.23
+
+3. Prepare the repository and release assets:
+   powershell -NoProfile -ExecutionPolicy Bypass -File `
+     ".\Project-V-Watchtower-GitHub-Release-Kit-1.0.0\scripts\Prepare-ReleaseAssets.ps1" `
+     -ProjectRoot "E:\PROJECTS\worldmonitor-2.5.23"
+
+4. Review:
+   E:\PROJECTS\worldmonitor-2.5.23\github-release-output
+
+5. Install GitHub CLI if necessary:
+   winget install --id GitHub.cli
+
+6. Sign in:
+   gh auth login
+
+7. Create the public repository and a DRAFT release:
+   powershell -NoProfile -ExecutionPolicy Bypass -File `
+     ".\Project-V-Watchtower-GitHub-Release-Kit-1.0.0\scripts\Publish-GitHubRelease.ps1" `
+     -ProjectRoot "E:\PROJECTS\worldmonitor-2.5.23" `
+     -Repository "YOUR-GITHUB-USERNAME/Project-V-Watchtower"
+
+The release is a draft by default. Review it on GitHub, then publish it manually.
+
+Important
+---------
+The project metadata identifies the software as AGPL-3.0-only. The preparation
+script therefore creates and attaches a corresponding source archive. It also
+refuses to prepare a public release if it cannot find the project's LICENSE file.
+
+Never upload:
+- .env or .env.local
+- API keys
+- updater private keys
+- Authenticode certificates
+- password files
+- local databases or private research
+- node_modules
+- Rust target output

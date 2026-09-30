@@ -1,0 +1,38 @@
+PROJECT V WATCHTOWER — PHASE 20.2.1 INSTALL
+
+PREREQUISITE
+  Phase 20.2 Air Operations 2.1 should already be installed.
+
+INSTALL
+  1. Stop npm run desktop:dev.
+  2. Back up the Watchtower project folder.
+  3. Open this Phase 20.2.1 ZIP.
+  4. Drag the included src folder into the root of the Watchtower project.
+  5. Merge folders and replace the matching files.
+  6. Start:
+
+       npm run desktop:dev
+
+FIRST TESTS
+  A. Main Map 2.0
+     - Confirm the time-range bar and Map 2.0 Situational Deck are separated.
+     - Drag MAP 2.0 // SITUATIONAL DECK · DRAG.
+     - Double-click the drag area to reset it.
+
+  B. Air Operations
+     - Select an aircraft from the contact list.
+     - Confirm the selected aircraft gets a bright ring and callsign label.
+     - Test LOCATE and FOLLOW.
+     - Leave the same aircraft selected through at least two distinct feed updates.
+     - Confirm LOCAL FLIGHT HISTORY begins accumulating points and a trail appears after two distinct reported positions.
+
+  C. Rate limiting
+     - If ADSB.lol rate-limits the app while contacts remain visible, the toolbar should show a cached/degraded status rather than a fatal red error.
+
+  D. Module Library
+     - Search for air.
+     - Air Operations Map should no longer remain presented as disabled in interface settings.
+     - OPEN should launch the focused Air Operations command surface.
+
+NOTE
+  Visual smoothing is display-only dead reckoning capped at 20 seconds. The actual trail/history uses only reported positions.

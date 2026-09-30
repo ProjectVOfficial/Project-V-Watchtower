@@ -1,0 +1,72 @@
+PROJECT V // WATCHTOWER
+PHASE 19.7 — LIVE LANGUAGE
+
+BASELINE
+This patch is built on the Phase 19.6 Startup Access Gate checkpoint.
+
+INSTALL
+1. Close Watchtower.
+2. Extract this ZIP.
+3. Copy the included src folder into:
+
+   E:\PROJECTS\worldmonitor-2.5.23
+
+4. Choose Replace files in destination.
+5. In PowerShell run:
+
+   cd "E:\PROJECTS\worldmonitor-2.5.23"
+   npm run typecheck
+
+6. If typecheck is clean:
+
+   npm run desktop:dev
+
+WHAT PHASE 19.7 ADDS
+- V drawer section 08: LIVE LANGUAGE
+- Ctrl+K command: OPEN LIVE LANGUAGE
+- Live Ops Live Language module
+- Local multilingual Whisper transcription using the already-installed @xenova/transformers runtime
+- Audio input modes:
+  * SHARED / SYSTEM AUDIO — choose a Watchtower, Camera Wall, or communications window and enable Share audio
+  * MICROPHONE
+- Translation targets: Original, English, Spanish, French, German, Portuguese, Arabic, Russian, Ukrainian, Chinese, Japanese, Korean
+- Optional local Ollama translation
+- Display modes: CAPTIONS, SIDE TRANSCRIPT, BOTH
+- Optional local transcript persistence
+- Copy, export TXT, and clear transcript controls
+- Camera Wall LIVE LANGUAGE handoff and caption overlay
+- Communications Wall LIVE LANGUAGE handoff
+- Breaking News / VIDEO WALL layout now includes the Live Language module
+
+SECURITY BOUNDARY
+Live Language does not inject code into isolated remote communications-provider webviews. For those services, use SHARED / SYSTEM AUDIO capture. This preserves the existing Watchtower remote-web security boundary.
+
+FIRST TEST
+1. Open V > 08 LIVE LANGUAGE.
+2. Choose MICROPHONE for the easiest first test.
+3. Set TRANSLATE TO = ORIGINAL LANGUAGE.
+4. Set DISPLAY = BOTH.
+5. Click START LIVE LANGUAGE and allow microphone access.
+6. Speak a sentence. The first Whisper model load can take longer than later starts.
+7. Confirm the sentence appears in LIVE TRANSCRIPT and in the caption overlay.
+8. Click STOP LISTENING.
+
+TRANSLATION TEST
+1. Make sure Ollama URL/model are already configured in API KEYS.
+2. Set TRANSLATE TO = ENGLISH (or another target).
+3. Start capture and speak/play a different language.
+4. Confirm the original Whisper transcript appears first and the translated line follows.
+
+CAMERA WALL TEST
+1. Open Camera Wall.
+2. Click LIVE LANGUAGE in the Camera Wall header.
+3. Watchtower should reveal the Live Language module.
+4. Choose SHARED / SYSTEM AUDIO and START LIVE LANGUAGE.
+5. In the Windows capture picker select the Camera Wall window and enable Share audio.
+6. Play an authorized stream with speech and confirm captions/transcript appear.
+
+NOTES
+- Shared/system-audio capture support depends on the Windows/WebView2 capture picker exposing an audio track. If it does not, switch SOURCE to MICROPHONE.
+- The Whisper model is loaded on demand and may require an initial model download before local inference begins.
+- Translation is optional. If Ollama is unavailable, the original Whisper transcript remains usable.
+- SAVE TRANSCRIPT LOCALLY is off by default.

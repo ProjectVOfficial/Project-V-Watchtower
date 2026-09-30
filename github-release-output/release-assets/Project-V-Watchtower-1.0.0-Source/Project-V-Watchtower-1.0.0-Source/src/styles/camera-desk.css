@@ -1,0 +1,66 @@
+.pv-camera-desk-shell { grid-template-rows: 66px 48px minmax(0,1fr) 25px; }
+.pv-camera-toolbar { display:flex; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid #3c2727; background:#0c0909; overflow-x:auto; }
+.pv-camera-toolbar label { display:flex; align-items:center; gap:6px; color:#8f8179; font-size:8px; letter-spacing:.1em; white-space:nowrap; }
+.pv-camera-toolbar select { width:auto; min-width:150px; padding:6px 26px 6px 7px; }
+.pv-camera-toggle { padding:6px 8px; border:1px solid #322323; background:#0a0808; }
+.pv-camera-toggle input { width:auto; accent-color:#b23b40; }
+.pv-camera-desk-main { min-height:0; display:grid; grid-template-columns:280px minmax(0,1fr); gap:1px; background:#352323; }
+.pv-camera-sidebar { min-height:0; display:grid; grid-template-rows:auto auto minmax(0,1fr) auto; background:#090707; }
+.pv-camera-sidebar-head { display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #322323; color:#bc4b50; font-size:8px; letter-spacing:.12em; }
+.pv-camera-sidebar-head span { color:#766a64; }
+.pv-camera-source-tabs { display:grid; grid-template-columns:1fr 1.25fr .55fr; gap:3px; padding:6px; border-bottom:1px solid #302121; background:#0b0808; }
+.pv-camera-source-tabs button { min-height:27px; padding:4px 5px; color:#796f69; font-size:6.5px; white-space:nowrap; }
+.pv-camera-source-tabs button.active { border-color:#9f3b40; background:#251012; color:#f05c63; box-shadow:inset 0 -2px 0 #ca4047; }
+.pv-camera-stream-list { min-height:0; overflow:auto; padding:7px; }
+.pv-camera-stream-option { position:relative; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:8px; margin-bottom:5px; padding:8px; border:1px solid #2d2020; background:#0d0a0a; cursor:pointer; }
+.pv-camera-stream-option.selected { border-color:#753437; background:#160d0e; box-shadow:inset 2px 0 0 #b43e44; }
+.pv-camera-stream-option input { width:auto; accent-color:#c44249; }
+.pv-camera-stream-option span { min-width:0; display:grid; gap:3px; }
+.pv-camera-stream-option strong { overflow:hidden; color:#d4c9c0; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+.pv-camera-stream-option small { overflow:hidden; color:#6e645e; font-size:7px; text-overflow:ellipsis; white-space:nowrap; }
+.pv-camera-stream-option em { color:#6c8c78; font-size:6px; font-style:normal; }
+.pv-camera-stream-option button { min-height:23px; padding:1px 7px; }
+.pv-camera-source-tools { display:flex!important; align-items:center; justify-content:flex-end; gap:3px; }
+.pv-camera-source-tools button { min-width:30px; padding:2px 4px; font-size:6px; }
+.pv-camera-list-empty { padding:24px 10px; color:#786b65; font-size:8px; line-height:1.6; text-align:center; }
+.pv-camera-list-empty small { color:#554d49; font-size:7px; }
+.pv-camera-sidebar-note { padding:9px; border-top:1px solid #2d2020; color:#655d58; font-size:7px; line-height:1.5; }
+.pv-camera-stage-wrap { min-width:0; min-height:0; position:relative; overflow:hidden; background:#030303; }
+.pv-camera-stage { height:100%; min-height:0; display:grid; gap:4px; padding:4px; background:#050404; overflow:auto; }
+.pv-camera-stage.layout-two-by-two { grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:repeat(2,minmax(260px,1fr)); }
+.pv-camera-stage.layout-three-by-three { grid-template-columns:repeat(3,minmax(0,1fr)); grid-auto-rows:minmax(210px,1fr); }
+.pv-camera-stage.layout-single { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr); }
+.pv-camera-stage.layout-focus-four { grid-template-columns:2fr 1fr 1fr; grid-template-rows:repeat(2,minmax(250px,1fr)); }
+.pv-camera-stage.layout-focus-four .pv-camera-cell.focus { grid-row:1 / span 2; }
+.pv-camera-cell { min-width:0; min-height:0; display:grid; grid-template-rows:36px minmax(0,1fr) 24px; border:1px solid #3c2929; background:#080707; overflow:hidden; }
+.pv-camera-cell > header { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:5px 7px; border-bottom:1px solid #302121; background:#100b0b; }
+.pv-camera-cell > header > div { min-width:0; display:grid; grid-template-columns:auto minmax(0,1fr); gap:0 6px; align-items:center; }
+.pv-camera-cell > header strong { overflow:hidden; color:#ddd1c7; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+.pv-camera-cell > header small { grid-column:2; color:#665d58; font-size:6px; }
+.pv-camera-cell nav { display:flex; gap:3px; overflow-x:auto; }
+.pv-camera-cell nav button { min-height:23px; padding:3px 5px; font-size:6px; white-space:nowrap; }
+.pv-camera-live-dot { width:6px; height:6px; grid-row:1 / span 2; border-radius:50%; background:#d23d44; box-shadow:0 0 8px rgba(210,61,68,.7); }
+.pv-camera-media { min-height:0; position:relative; background:#000; }
+.pv-camera-media iframe, .pv-camera-media video { width:100%; height:100%; display:block; border:0; object-fit:contain; background:#000; }
+.pv-camera-loading { position:absolute; inset:0; display:grid; place-items:center; color:#774043; font-size:8px; letter-spacing:.14em; }
+.pv-camera-cell > footer { display:flex; justify-content:space-between; align-items:center; padding:4px 7px; border-top:1px solid #2b1e1e; color:#5f8e70; font-size:7px; }
+.pv-camera-cell > footer em { color:#625a55; font-style:normal; }
+.pv-camera-media[data-health="error"] + footer { color:#df5b61; }
+.pv-camera-empty { grid-column:1 / -1; min-height:300px; display:grid; place-content:center; gap:10px; color:#736a64; text-align:center; }
+.pv-camera-empty strong { color:#b24a4e; letter-spacing:.14em; }
+.pv-camera-empty p { margin:0; font-size:9px; }
+.pv-camera-overflow-note { position:absolute; right:10px; bottom:10px; z-index:5; padding:6px 8px; border:1px solid #6a3a25; background:rgba(18,10,7,.94); color:#ce9355; font-size:7px; }
+.pv-camera-dialog-backdrop { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:24px; background:rgba(0,0,0,.82); backdrop-filter:blur(5px); }
+.pv-camera-dialog { width:min(620px,96vw); display:grid; gap:9px; padding:12px; border:1px solid #783538; background:#0d0909; box-shadow:0 18px 70px rgba(0,0,0,.7); }
+.pv-camera-dialog header, .pv-camera-dialog footer { display:flex; align-items:center; justify-content:space-between; gap:7px; }
+.pv-camera-dialog header { padding-bottom:8px; border-bottom:1px solid #3a2525; color:#c64d53; letter-spacing:.12em; }
+.pv-camera-dialog label { display:grid; gap:5px; color:#8e8179; font-size:8px; letter-spacing:.09em; }
+.pv-camera-dialog textarea { min-height:80px; }
+.pv-camera-dialog-help { padding:8px; border:1px solid #392626; background:#0a0707; color:#786e67; font-size:7px; line-height:1.55; }
+.pv-camera-dialog footer { justify-content:flex-end; padding-top:6px; }
+@media (max-width:1050px) {
+  .pv-camera-desk-main { grid-template-columns:220px minmax(0,1fr); }
+  .pv-camera-stage.layout-three-by-three { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .pv-camera-stage.layout-focus-four { grid-template-columns:2fr 1fr; grid-template-rows:repeat(3,minmax(220px,1fr)); }
+  .pv-camera-stage.layout-focus-four .pv-camera-cell.focus { grid-row:1 / span 2; }
+}

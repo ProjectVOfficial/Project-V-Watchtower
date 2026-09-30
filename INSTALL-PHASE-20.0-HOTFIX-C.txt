@@ -1,0 +1,14 @@
+PROJECT V WATCHTOWER — PHASE 20.0 HOTFIX C
+
+1. Close Watchtower.
+2. Copy the included src folder into your live Watchtower source root:
+   E:\PROJECTS\worldmonitor-2.5.23
+3. Choose Replace files in destination.
+4. Run:
+   npm run typecheck
+5. If clean, run:
+   npm run desktop:dev
+6. On Map 2.0 click AIRSPACE.
+   Desktop mode should open ADSB.lol in a restricted Watchtower webview window.
+
+Note: LIVE AIR remains the experimental native aircraft overlay. AIRSPACE is the full worldwide aircraft map handoff.

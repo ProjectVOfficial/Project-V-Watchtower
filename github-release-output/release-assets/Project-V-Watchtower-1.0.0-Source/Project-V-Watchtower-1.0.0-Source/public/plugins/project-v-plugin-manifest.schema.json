@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-v.local/schemas/plugin-manifest-v1.json",
+  "title": "Project V Watchtower Plugin Manifest",
+  "description": "Manifest for a sandboxed local Project V Watchtower module.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "version",
+    "description",
+    "author",
+    "category",
+    "defaultSize",
+    "entry"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 80,
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+){1,7}$"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 48 },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z._+-]{0,31}$"
+    },
+    "description": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "author": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "category": {
+      "enum": ["maps", "intelligence", "news", "operations", "markets", "weather", "ai", "research", "system"]
+    },
+    "icon": { "type": "string", "maxLength": 8 },
+    "defaultSize": { "$ref": "#/$defs/moduleSize" },
+    "minSize": { "$ref": "#/$defs/moduleSize" },
+    "refreshIntervalSeconds": { "type": "integer", "minimum": 5, "maximum": 86400 },
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["storage", "network", "notifications", "clipboard-read", "clipboard-write"]
+      }
+    },
+    "allowedNetworkOrigins": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^https?://[^/]+$"
+      }
+    },
+    "requiredRuntimeFeatures": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 64 }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "html"],
+      "properties": {
+        "type": { "const": "sandbox-html" },
+        "html": { "type": "string", "minLength": 1, "maxLength": 180000 },
+        "css": { "type": "string", "maxLength": 120000 },
+        "script": { "type": "string", "maxLength": 180000 }
+      }
+    }
+  },
+  "$defs": {
+    "moduleSize": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "minimum": 2, "maximum": 12 },
+        "h": { "type": "integer", "minimum": 2, "maximum": 14 }
+      }
+    }
+  }
+}

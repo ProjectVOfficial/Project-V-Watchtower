@@ -1,0 +1,47 @@
+html, body, #launchDeskApp { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #070606; color: #e6ded2; }
+.pv-launch-desk-shell { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
+.pv-launch-desk-main { min-height: 0; display: grid; grid-template-columns: 330px 1fr; border-top: 1px solid #482126; }
+.pv-launch-sidebar { min-height: 0; display: grid; grid-template-rows: auto 1fr; padding: 14px; border-right: 1px solid #482126; background: #0a0808; }
+.pv-launch-sidebar input { width: 100%; box-sizing: border-box; background: #080707; border: 1px solid #573038; color: #e6ded2; padding: 11px 12px; font: 12px monospace; letter-spacing: .08em; }
+.pv-launch-app-list { overflow: auto; padding-top: 12px; display: flex; flex-direction: column; gap: 7px; }
+.pv-launch-app-card { display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 10px; text-align: left; padding: 11px; background: #0d0a0a; border: 1px solid #332024; color: #d9d0c4; }
+.pv-launch-app-card:hover, .pv-launch-app-card.selected { border-color: #c92f3e; background: #170c0e; }
+.pv-launch-app-card span:nth-child(2) { display: grid; gap: 3px; }
+.pv-launch-app-card strong { font: 700 13px monospace; }
+.pv-launch-app-card small, .pv-launch-app-card em { color: #8b7773; font: 9px monospace; letter-spacing: .12em; }
+.pv-launch-app-card em { color: #d9902f; font-style: normal; }
+.pv-launch-icon, .pv-launch-large-icon { display: grid; place-items: center; border: 1px solid #73313a; color: #e34450; background: #14090b; }
+.pv-launch-icon { width: 32px; height: 32px; }
+.pv-launch-large-icon { width: 70px; height: 70px; font: 28px Georgia, serif; }
+.pv-launch-content { overflow: auto; padding: 28px; background: radial-gradient(circle at 65% 10%, rgba(125,20,29,.12), transparent 38%), #080707; }
+.pv-launch-welcome { max-width: 850px; margin: 7vh auto 0; text-align: center; }
+.pv-launch-welcome-mark { display: inline-grid; place-items: center; width: 88px; height: 88px; border: 1px solid #8b2732; color: #d43d49; font: 54px Georgia, serif; background: #11090a; box-shadow: 0 0 50px rgba(180,20,35,.12); }
+.pv-launch-welcome h1 { letter-spacing: .16em; font: 700 24px monospace; }
+.pv-launch-welcome p { color: #a8948e; line-height: 1.7; max-width: 680px; margin: 0 auto 25px; }
+.pv-launch-safety-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 25px 0; text-align: left; }
+.pv-launch-safety-grid div { border: 1px solid #372126; background: #0d0a0a; padding: 16px; display: grid; gap: 8px; }
+.pv-launch-safety-grid strong { color: #d33a47; font: 700 11px monospace; }
+.pv-launch-safety-grid span { color: #94827d; font: 11px/1.5 monospace; }
+.pv-launch-detail { max-width: 900px; margin: 0 auto; }
+.pv-launch-detail-heading { display: flex; gap: 18px; align-items: center; margin-bottom: 26px; }
+.pv-launch-detail-heading div:last-child { display: grid; gap: 4px; }
+.pv-launch-detail-heading span, .pv-launch-path span, .pv-launch-arguments > span { color: #b85761; font: 9px monospace; letter-spacing: .16em; }
+.pv-launch-detail-heading h1 { margin: 0; font: 700 28px monospace; letter-spacing: .08em; }
+.pv-launch-detail-heading small { color: #7e6d69; font: 10px monospace; }
+.pv-launch-path, .pv-launch-arguments { display: grid; gap: 8px; padding: 14px; margin-bottom: 10px; border: 1px solid #352126; background: #0c0909; }
+.pv-launch-path code, .pv-launch-arguments code { color: #d9d0c4; font: 11px/1.5 monospace; overflow-wrap: anywhere; }
+.pv-launch-arguments code { display: block; border-left: 2px solid #71303a; padding-left: 9px; }
+.pv-launch-capabilities { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+.pv-launch-capabilities span { border: 1px solid #3b292c; color: #735e5b; padding: 7px 10px; font: 9px monospace; letter-spacing: .08em; }
+.pv-launch-capabilities span.enabled { border-color: #286a50; color: #5ad59b; }
+.pv-launch-primary-actions, .pv-launch-secondary-actions { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 14px; }
+.pv-launch-content button, .pv-window-header-actions button { background: #100b0c; border: 1px solid #5b2b32; color: #d9d0c4; padding: 10px 14px; font: 700 10px monospace; letter-spacing: .08em; }
+.pv-launch-content button:hover, .pv-window-header-actions button:hover { border-color: #d63a48; color: #fff; }
+.pv-launch-content button.primary { background: #9c1f2b; border-color: #df3b49; color: white; }
+.pv-launch-content button.danger { color: #ef5964; }
+.pv-launch-status { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #482126; padding: 8px 13px; background: #090707; color: #d84a55; font: 10px monospace; letter-spacing: .08em; }
+.pv-launch-status small { color: #776664; }
+.pv-launch-empty { padding: 25px 12px; text-align: center; color: #9b8580; font: 11px/1.6 monospace; border: 1px dashed #3d282c; }
+@media (max-width: 820px) { .pv-launch-desk-main { grid-template-columns: 1fr; } .pv-launch-sidebar { max-height: 240px; border-right: 0; border-bottom: 1px solid #482126; } .pv-launch-safety-grid { grid-template-columns: 1fr; } }
+
+.pv-launch-capabilities .approval-required { border-color: #a66b22; color: #f0b35b; background: rgba(166, 107, 34, .08); }

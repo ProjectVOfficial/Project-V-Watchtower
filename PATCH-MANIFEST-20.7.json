@@ -1,0 +1,23 @@
+{
+  "phase": "20.7",
+  "name": "Phoenix Sentinel Monitoring",
+  "base": "Current Watchtower source with Phase 20.6 Phoenix AI Bridge + native repair installed",
+  "changedFiles": [
+    "src/services/operations-center.ts",
+    "src/components/OperationsPanels.ts",
+    "src/components/MapPopup.ts",
+    "src/app/panel-layout.ts",
+    "src/styles/project-v-theme.css"
+  ],
+  "nativeChanges": false,
+  "dependencyChanges": false,
+  "features": [
+    "Map SEND TO PHOENIX",
+    "Map WATCH WITH PHOENIX",
+    "Alert Center SENTINEL",
+    "Phoenix Sentinels inside Watchlists",
+    "term/severity monitoring",
+    "backlog priming",
+    "direct Phoenix delivery for Sentinel matches"
+  ]
+}

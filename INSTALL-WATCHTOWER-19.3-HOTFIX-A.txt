@@ -1,0 +1,12 @@
+PROJECT V WATCHTOWER — PHASE 19.3 HOTFIX A
+
+Fixes TypeScript TS18047 errors in setupCommandPalette() caused by the hoisted close() function losing DOM null-narrowing.
+
+Install:
+1. Close Watchtower / stop desktop:dev.
+2. Copy the included src folder over E:\PROJECTS\worldmonitor-2.5.23\src and replace the file.
+3. Run: npm run typecheck
+4. If clean, run: npm run desktop:dev
+
+Changed file:
+- src\app\panel-layout.ts

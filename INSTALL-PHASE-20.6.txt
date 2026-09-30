@@ -1,0 +1,24 @@
+PROJECT V WATCHTOWER — PHASE 20.6 PHOENIX AI BRIDGE
+
+Target source: project-v-watchtower 1.1.0-1
+
+INSTALL
+1. Close Watchtower.
+2. Extract this ZIP.
+3. Copy the included src and src-tauri folders plus PHASE-20.6-PHOENIX-AI-BRIDGE.md into your current Watchtower project root.
+4. Choose Replace files in destination.
+5. Run: npm run typecheck
+6. Run: npm run desktop:dev
+
+PAIR
+1. Start Phoenix Desktop 0.9.8 or later.
+2. Phoenix → Watchtower → Copy receiver pairing.
+3. Watchtower → V menu → PROJECT V BRIDGE → PHOENIX AI → PAIR PHOENIX.
+4. Paste the copied JSON.
+5. Choose TEST.
+
+DEFAULT
+Automatic forwarding is ON at HIGH+ severity. You can change the threshold or disable auto-forwarding from the Phoenix AI card.
+
+SECURITY
+The Phoenix pairing token is stored in Watchtower's desktop credential vault. The native sender accepts loopback-only Phoenix endpoints and only the /api/watchtower/alert path.

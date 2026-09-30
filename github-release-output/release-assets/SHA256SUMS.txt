@@ -1,0 +1,3 @@
+﻿988698290c6ef7ee4134c3a2fc86dcf8ddbb0579af8a315e5e2698f512046a04  Project-V-Watchtower-1.0.0-Windows-x64-Setup.exe
+6bfc99041101b31c56f216b2c103b5655ad22ed030b9877c65552712f7826050  Project-V-Watchtower-1.0.0-Windows-x64.msi
+e315f900c97e691a4937ba4b95fba82bda5e0687b2b6fc856d47e4d511a5aea8  Project-V-Watchtower-1.0.0-Source.zip

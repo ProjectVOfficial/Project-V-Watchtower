@@ -1,0 +1,33 @@
+PROJECT V WATCHTOWER — PHASE 20.2
+AIR OPERATIONS 2.1
+
+INSTALL ORDER
+Install this AFTER Phase 20.1 Hotfix C.
+
+INSTALL
+1. Stop npm run desktop:dev.
+2. Back up the current Project V Watchtower folder.
+3. Open this ZIP.
+4. Drag the included src folder into the ROOT of the Watchtower project and merge/replace matching files.
+5. Also replace vite.config.ts in the Watchtower project root with the vite.config.ts included here.
+6. Start npm run desktop:dev again.
+
+FIRST TEST
+1. Open AIR OPS.
+2. At the initial world view, AUTO · PROGRESSIVE should show WORLD SPECIAL traffic across multiple countries/continents when ADSB.lol returns it.
+3. Clusters should appear where contacts are dense. Zooming into a cluster should reveal individual aircraft.
+4. Zoom into the United States or another region beyond about zoom 3.6. AUTO should switch to REGIONAL LIVE traffic.
+5. Open FILTERS and test ADS-B, UAT / ADS-R, TIS-B, ADS-C, MLAT, Mode-S, Military, PIA, and LADD filters.
+6. Select an aircraft. Confirm the collapsible Identity, Spatial, Air Data, FMS / Navigation, and Signal / Quality sections appear.
+7. Click FOLLOW, then TRAIL ON. After subsequent refreshes/movement, the aircraft should remain centered and its locally observed session trail should draw behind it.
+8. Click ADSB DETAIL. The external ADSB.lol Airspace window should open focused on that ICAO address when it is a standard six-digit ICAO hex.
+9. Collapse and reopen the right intelligence sidebar.
+10. Confirm EDIT DECK / LOCK DECK is still present in the main Watchtower command bar.
+
+EXPECTED COVERAGE
+- WORLD VIEW: worldwide Military / PIA / LADD strategic contacts from ADSB.lol.
+- REGIONAL VIEW: dense civilian + special traffic for the visible region.
+- FULL WORLD CIVILIAN TAR1090 VIEW: use ADSB GLOBAL.
+
+IMPORTANT
+The native world view intentionally does not fire enough 250-NM point queries to tile the entire planet. Doing that against the public point API would recreate the rate-limit problem. Air Operations instead changes coverage intelligently with zoom.

@@ -1,0 +1,42 @@
+/* Project V Watchtower — Phase 20.2.3 closure hotfix
+   Keeps the time-range strip and Map 2.0 situation deck in separate rows.
+   The Map 2.0 deck remains draggable, but its top edge is protected in
+   DeckGLMap.ts so persisted legacy coordinates cannot overlap the time bar. */
+
+.deckgl-map-wrapper .deckgl-time-slider {
+  top: 10px !important;
+  left: 10px !important;
+  right: auto !important;
+  z-index: 34 !important;
+}
+
+.deckgl-map-wrapper .v-map2-deck {
+  top: 52px !important;
+  left: 10px !important;
+  right: auto !important;
+  transform: none !important;
+  z-index: 33 !important;
+  width: fit-content;
+  max-width: calc(100% - 96px);
+  flex-wrap: wrap;
+}
+
+.deckgl-map-wrapper .v-map2-brand[data-map2-drag-handle] {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.deckgl-map-wrapper .v-map2-brand[data-map2-drag-handle].dragging {
+  cursor: grabbing;
+}
+
+.deckgl-map-wrapper .v-map2-brand[data-map2-drag-handle] small {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .deckgl-map-wrapper .v-map2-deck {
+    max-width: calc(100% - 72px);
+  }
+}

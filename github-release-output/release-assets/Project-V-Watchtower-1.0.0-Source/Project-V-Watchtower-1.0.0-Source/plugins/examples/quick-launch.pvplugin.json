@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "projectv.tools.quick-links",
+  "name": "Quick Launch",
+  "version": "1.0.0",
+  "description": "A compact launch board for frequently used public intelligence resources.",
+  "author": "Project V",
+  "category": "system",
+  "icon": "⌁",
+  "defaultSize": { "w": 4, "h": 3 },
+  "minSize": { "w": 3, "h": 2 },
+  "permissions": ["network"],
+  "allowedNetworkOrigins": [
+    "https://www.reuters.com",
+    "https://apnews.com",
+    "https://firms.modaps.eosdis.nasa.gov",
+    "https://www.openstreetmap.org"
+  ],
+  "entry": {
+    "type": "sandbox-html",
+    "html": "<main><h1>QUICK LAUNCH</h1><button data-url=\"https://www.reuters.com/world/\">REUTERS WORLD</button><button data-url=\"https://apnews.com/hub/world-news\">AP WORLD</button><button data-url=\"https://firms.modaps.eosdis.nasa.gov/map/\">NASA FIRMS</button><button data-url=\"https://www.openstreetmap.org/\">OPENSTREETMAP</button></main>",
+    "css": ":root{color-scheme:dark;font-family:monospace;background:#090909;color:#e9dfd2}body{margin:0;padding:14px}main{display:grid;grid-template-columns:1fr 1fr;gap:8px}h1{grid-column:1/-1;font-size:16px;color:#d36d6d}button{padding:12px;border:1px solid #4a2626;background:#120b0b;color:#eee;cursor:pointer}",
+    "script": "document.querySelectorAll('[data-url]').forEach(button=>button.addEventListener('click',()=>ProjectV.openExternal(button.dataset.url)));"
+  }
+}
