@@ -1,3 +1,4 @@
+import { stripMarkupText } from '../_markup-text.mjs';
 // BC Wildfire current fire points (OpenMaps KML + same-host WFS fallback).
 // Tests import this module, not the seeder entrypoint.
 //
@@ -129,7 +130,7 @@ function parseExtendedData(block) {
   let match;
   while ((match = dataRe.exec(block)) !== null) {
     const name = ((match[1].match(/\bname="([^"]+)"/i) || [])[1] || '').trim();
-    const value = xmlField(match[2], 'value') || decodeXml(match[2].replace(/<[^>]+>/g, ''));
+    const value = xmlField(match[2], 'value') || decodeXml(stripMarkupText(match[2]));
     if (name) props[name] = value;
   }
   const simpleRe = /<(?:[\w.-]+:)?SimpleData\b([^>]*)>([\s\S]*?)<\/(?:[\w.-]+:)?SimpleData>/gi;
@@ -143,7 +144,7 @@ function parseExtendedData(block) {
     const cells = [];
     let cell;
     while ((cell = cellRe.exec(description)) !== null) {
-      cells.push(decodeXml(cell[1].replace(/<[^>]+>/g, '')));
+      cells.push(decodeXml(stripMarkupText(cell[1])));
     }
     for (let i = 0; i + 1 < cells.length; i += 2) {
       const key = cells[i];
