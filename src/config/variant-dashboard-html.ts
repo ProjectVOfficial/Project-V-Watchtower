@@ -4,6 +4,7 @@ import {
   WEBSITE_ID,
 } from './schema-graph-ids';
 import { VARIANT_META, type VariantMeta } from './variant-meta';
+import { getHtmlTagAttribute, rewriteHtmlScriptBlocks } from './html-script-blocks';
 import {
   VARIANT_SEO_PARAGRAPHS,
   type VariantSeoKey,
@@ -155,15 +156,16 @@ function variantBreadcrumbJsonLd(meta: VariantMeta): string {
 
 function removeJsonLdTypes(html: string, expectedTypes: readonly string[]): string {
   const counts = new Map(expectedTypes.map((type) => [type, 0]));
-  const result = html.replace(
-    /[ \t]*<script\b(?=[^>]*\btype=["']application\/ld\+json["'])[^>]*>\s*([\s\S]*?)\s*<\/script>\s*/gi,
-    (script, json: string) => {
-      const type = JSON.parse(json)['@type'];
-      if (!counts.has(type)) return script;
-      counts.set(type, counts.get(type)! + 1);
-      return '';
-    },
-  );
+  const result = rewriteHtmlScriptBlocks(html, (block) => {
+    const original = `${block.openTag}${block.body}${block.closeTag}`;
+    const typeAttr = getHtmlTagAttribute(block.openTag, 'type')?.trim().toLowerCase();
+    if (typeAttr !== 'application/ld+json') return original;
+
+    const type = JSON.parse(block.body.trim())['@type'];
+    if (!counts.has(type)) return original;
+    counts.set(type, counts.get(type)! + 1);
+    return '';
+  });
   for (const expectedType of expectedTypes) {
     const count = counts.get(expectedType)!;
     if (count !== 1) {
