@@ -411,7 +411,6 @@ export function restoreLastGoodConfiguration(): void {
 }
 
 function restoreLocalStorage(entries: Record<string, string>): void {
-  const preservedSecrets = localStorage.getItem('project-v-local-runtime-secrets-v1');
   const preservedPin = getSecuritySettings().pin;
   for (let index = localStorage.length - 1; index >= 0; index -= 1) {
     const key = localStorage.key(index);
@@ -434,7 +433,8 @@ function restoreLocalStorage(entries: Record<string, string>): void {
   if (preservedPin && !localStorage.getItem(SETTINGS_KEY)) {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, pin: preservedPin }));
   }
-  if (preservedSecrets !== null) localStorage.setItem('project-v-local-runtime-secrets-v1', preservedSecrets);
+  // Older builds persisted runtime API keys in localStorage. Never restore them.
+  localStorage.removeItem('project-v-local-runtime-secrets-v1');
 }
 
 export async function restoreProjectVBackup(value: unknown): Promise<{ researchDocuments: number; researchExcerpts: number; cases: number; workbooks: number }> {
