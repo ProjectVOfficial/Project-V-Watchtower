@@ -114,6 +114,10 @@ const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/5
 // Block requests to private/reserved IP ranges to prevent the RSS proxy
 // from being used as a localhost pivot or internal network scanner.
 
+function isLoopbackHost(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+}
+
 function isPrivateIP(ip) {
   // IPv4-mapped IPv6 — extract the v4 portion
   const v4Mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
@@ -371,8 +375,9 @@ async function proxyToCloud(requestUrl, req, remoteBase) {
   } catch {
     throw new Error('Invalid cloud fallback URL');
   }
-  if (base.protocol !== 'https:' || base.username || base.password) {
-    throw new Error('Cloud fallback must be an HTTPS URL without credentials');
+  const loopback = isLoopbackHost(base.hostname);
+  if ((!loopback && base.protocol !== 'https:') || !['http:', 'https:'].includes(base.protocol) || base.username || base.password) {
+    throw new Error('Cloud fallback must use HTTPS, except for loopback development endpoints');
   }
   const target = new URL(`${requestUrl.pathname}${requestUrl.search}`, base);
   const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req);
@@ -381,6 +386,7 @@ async function proxyToCloud(requestUrl, req, remoteBase) {
     // Strip browser-origin headers for server-to-server parity.
     headers: toHeaders(req.headers, { stripOrigin: true }),
     body,
+    ...(loopback ? { allowPrivate: true } : {}),
   });
 }
 
@@ -847,8 +853,7 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
       try {
         const parsed = new URL(value);
         if (!['http:', 'https:'].includes(parsed.protocol)) return fail('Must be an http(s) URL');
-        const localHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
-        if (!localHosts.has(parsed.hostname)) return fail('Ollama URL must use a loopback host');
+        if (!isLoopbackHost(parsed.hostname)) return fail('Ollama URL must use a loopback host');
         // Probe the OpenAI-compatible models endpoint
         probeUrl = new URL('/v1/models', value).toString();
       } catch {
@@ -1238,7 +1243,6 @@ async function dispatch(requestUrl, req, routes, context) {
 
     const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req);
     const hdrs = toHeaders(req.headers, { stripOrigin: true });
-    hdrs.set('Origin', `http://127.0.0.1:${context.port}`);
     const request = new Request(requestUrl.toString(), {
       method: req.method,
       headers: hdrs,
