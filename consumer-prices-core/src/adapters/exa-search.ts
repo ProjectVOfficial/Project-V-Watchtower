@@ -48,10 +48,6 @@ const PRICE_PATTERNS = [
   new RegExp(`(${CCY})\\s*(\\d+(?:\\.\\d{1,3})?)`, 'i'),
 ];
 
-function escapeRegExpLiteral(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\function matchPrice(text: string, expectedCurrency: string): number | null {');
-}
-
 function matchPrice(text: string, expectedCurrency: string): number | null {
   for (const re of PRICE_PATTERNS) {
     const match = text.match(re);
@@ -66,8 +62,9 @@ function matchPrice(text: string, expectedCurrency: string): number | null {
   }
   for (const [sym, iso] of Object.entries(SYMBOL_MAP)) {
     if (iso !== expectedCurrency) continue;
-    const re = new RegExp(`${escapeRegExpLiteral(sym)}\\s*(\\d+(?:[.,]\\d{1,3})?)`, 'i');
-    const m = text.match(re);
+    const symbolIndex = text.indexOf(sym);
+    if (symbolIndex === -1) continue;
+    const m = text.slice(symbolIndex + sym.length).match(/^\s*(\d+(?:[.,]\d{1,3})?)/);
     if (m) {
       const price = parseFloat(m[1].replace(',', '.'));
       const minPrice = CURRENCY_MIN[iso] ?? 0;
