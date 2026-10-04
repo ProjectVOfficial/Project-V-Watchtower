@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { stripMarkupText } from './_markup-text.mjs';
 // seed-hormuz.mjs — Strait of Hormuz Trade Tracker
 //
 // Scrapes the WTO DataLab Hormuz Trade Tracker page (daily AXSMarine data)
@@ -179,7 +180,7 @@ async function fetchPbiCharts() {
 }
 
 export function stripTags(s) {
-  return decodeHtmlEntities(s.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
+  return decodeHtmlEntities(stripMarkupText(s)).replace(/\s+/g, ' ').trim();
 }
 
 function deriveStatus(text) {
