@@ -157,10 +157,6 @@ const PRICE_PATTERNS = [
   new RegExp(`(\\d+(?:\\.\\d{1,3})?)\\s*(${CCY})`, 'i'),  // number then CCY (fallback — use last match)
 ];
 
-function escapeRegExpLiteral(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\function matchPrice(text, url) {');
-}
-
 function matchPrice(text, url) {
   // Pattern 0: currency-first — take the first match (safe, no ambiguity)
   const re0 = PRICE_PATTERNS[0];
@@ -185,8 +181,9 @@ function matchPrice(text, url) {
   }
   // Fallback: currency symbols (£, €, ¥, ₹, ₩, ₦, R$)
   for (const [sym, iso] of Object.entries(SYMBOL_MAP)) {
-    const re = new RegExp(`${escapeRegExpLiteral(sym)}\\s*(\\d+(?:[.,]\\d{1,3})?)`, 'i');
-    const m = text.match(re);
+    const symbolIndex = text.indexOf(sym);
+    if (symbolIndex === -1) continue;
+    const m = text.slice(symbolIndex + sym.length).match(/^\s*(\d+(?:[.,]\d{1,3})?)/);
     if (m) {
       const price = parseFloat(m[1].replace(',', '.'));
       const minPrice = CURRENCY_MIN[iso] ?? 0;
