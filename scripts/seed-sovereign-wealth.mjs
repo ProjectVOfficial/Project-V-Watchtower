@@ -549,6 +549,10 @@ const INFOBOX_AUM_LABELS = [
  * Scans CURRENCY_SYMBOL_TO_ISO in order so longer/more-specific
  * prefixes (US$, S$) match before bare `$` / `kr`.
  */
+function escapeRegExpLiteral(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\export function detectCurrency(text) {');
+}
+
 export function detectCurrency(text) {
   const haystack = String(text || '');
   for (const [symbol, iso] of CURRENCY_SYMBOL_TO_ISO) {
@@ -556,7 +560,7 @@ export function detectCurrency(text) {
     // either a space before or start-of-string immediately before the
     // token, and a digit (optional space) after.
     if (symbol === '$' || symbol === 'kr') {
-      const re = new RegExp(`(^|\\s)${symbol.replace(/[$]/g, '\\$')}\\s*\\d`);
+      const re = new RegExp(`(^|\\s)${escapeRegExpLiteral(symbol)}\\s*\\d`);
       if (re.test(haystack)) return iso;
       continue;
     }
