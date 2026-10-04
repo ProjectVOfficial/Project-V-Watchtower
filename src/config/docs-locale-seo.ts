@@ -126,34 +126,111 @@ function replaceOgLocale(html: string, locale: string): string {
   return html;
 }
 
+function findMarkupTagEnd(html: string, start: number): number {
+  let quote = '';
+  for (let index = start; index < html.length; index += 1) {
+    const char = html[index]!;
+    if (quote) {
+      if (char === quote) quote = '';
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '>') {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function tagIdentity(tag: string): { name: string; closing: boolean } {
+  let index = 1;
+  let closing = false;
+  if (tag[index] === '/') { closing = true; index += 1; }
+  while (tag[index] === ' ' || tag[index] === '\t' || tag[index] === '\n' || tag[index] === '\r' || tag[index] === '\f') index += 1;
+  const start = index;
+  while (index < tag.length) {
+    const char = tag[index]!;
+    if (!(char >= 'A' && char <= 'Z') && !(char >= 'a' && char <= 'z') && !(char >= '0' && char <= '9') && char !== '-') break;
+    index += 1;
+  }
+  return { name: tag.slice(start, index).toLowerCase(), closing };
+}
+
 function rewriteDocsHeadLinks(html: string, pathname: string): string {
   const href = docsAbsoluteUrl(pathname).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   const canonical = `<link rel="canonical" href="${href}" />`;
   const alternates = buildDocsHreflangLinkTags(pathname).join('');
+  const lower = html.toLowerCase();
+  let output = '';
+  let cursor = 0;
   let inHead = false;
   let replaced = false;
   let inserted = false;
-  const rewritten = html.replace(
-    /<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1(?:[\t\n\f\r ][^>]*|\/[^>]*)?>|<(?:head|\/head|link)\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi,
-    (tag) => {
-      if (/^<head[\t\n\f\r >]/i.test(tag)) inHead = true;
-      if (/^<\/head[\t\n\f\r >]/i.test(tag) && inHead) {
+
+  while (cursor < html.length) {
+    const open = html.indexOf('<', cursor);
+    if (open === -1) { output += html.slice(cursor); break; }
+    output += html.slice(cursor, open);
+
+    if (html.startsWith('<!--', open)) {
+      const commentEnd = html.indexOf('-->', open + 4);
+      if (commentEnd === -1) { output += html.slice(open); break; }
+      output += html.slice(open, commentEnd + 3);
+      cursor = commentEnd + 3;
+      continue;
+    }
+
+    const tagEnd = findMarkupTagEnd(html, open + 1);
+    if (tagEnd === -1) { output += html.slice(open); break; }
+    const tag = html.slice(open, tagEnd + 1);
+    const identity = tagIdentity(tag);
+
+    if (!identity.closing && (identity.name === 'script' || identity.name === 'style')) {
+      const closeStart = lower.indexOf(`</${identity.name}`, tagEnd + 1);
+      if (closeStart !== -1) {
+        const closeEnd = findMarkupTagEnd(html, closeStart + identity.name.length + 2);
+        if (closeEnd !== -1) {
+          output += html.slice(open, closeEnd + 1);
+          cursor = closeEnd + 1;
+          continue;
+        }
+      }
+    }
+
+    if (identity.name === 'head') {
+      if (!identity.closing) {
+        inHead = true;
+        output += tag;
+      } else if (inHead) {
+        output += `${replaced ? '' : canonical}${alternates}${tag}`;
         inHead = false;
         inserted = true;
-        return `${replaced ? '' : canonical}${alternates}${tag}`;
+      } else {
+        output += tag;
       }
-      if (!inHead || !/^<link\b/i.test(tag)) return tag;
-      const attributes = [...tag.matchAll(/\s+([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)];
-      const rel = attributes.find((attribute) => attribute[1]?.toLowerCase() === 'rel');
-      const relations = (rel?.[2] ?? rel?.[3] ?? rel?.[4] ?? '').toLowerCase().split(/\s+/);
-      if (relations.includes('alternate') && attributes.some((attribute) => attribute[1]?.toLowerCase() === 'hreflang')) return '';
-      if (!relations.includes('canonical')) return tag;
-      if (replaced) return '';
-      replaced = true;
-      return canonical;
-    },
-  );
-  return inserted ? rewritten : `${rewritten}${alternates}`;
+      cursor = tagEnd + 1;
+      continue;
+    }
+
+    if (inHead && !identity.closing && identity.name === 'link') {
+      const rel = (getHtmlTagAttribute(tag, 'rel') ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+      const hasHreflang = getHtmlTagAttribute(tag, 'hreflang') !== null;
+      if (rel.includes('alternate') && hasHreflang) {
+        cursor = tagEnd + 1;
+        continue;
+      }
+      if (rel.includes('canonical')) {
+        if (!replaced) output += canonical;
+        replaced = true;
+        cursor = tagEnd + 1;
+        continue;
+      }
+    }
+
+    output += tag;
+    cursor = tagEnd + 1;
+  }
+
+  return inserted ? output : `${output}${alternates}`;
 }
 
 const CANONICAL_WEBSITE_ID = WEBSITE_ID;
