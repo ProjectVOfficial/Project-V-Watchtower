@@ -493,7 +493,7 @@ export async function fetchCountryMarkets(country: string): Promise<PredictionMa
       .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
       .slice(0, 5);
   } catch (e) {
-    console.error(`[Polymarket] fetchCountryMarkets(${country}) failed:`, e);
+    console.error('[Polymarket] fetchCountryMarkets failed:', { country, error: e });
     return [];
   }
 }
