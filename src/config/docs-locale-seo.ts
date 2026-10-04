@@ -14,6 +14,7 @@
 
 import { CANONICAL_ORIGIN, ORGANIZATION_ID, PERSON_ID, WEBSITE_ID } from './schema-graph-ids';
 import { DOCS_PAGE_DATES } from './docs-page-dates.generated';
+import { getHtmlTagAttribute, rewriteHtmlScriptBlocks } from './html-script-blocks';
 
 export const DOCS_PUBLIC_ORIGIN = 'https://www.worldmonitor.app';
 export const DOCS_ZH_HREFLANG = 'zh-Hans';
@@ -162,8 +163,6 @@ const DOCS_WEBSITE_IDS = new Set([
   `${DOCS_PUBLIC_ORIGIN}/docs#website`,
   `${DOCS_PUBLIC_ORIGIN}/docs/#website`,
 ]);
-const JSON_LD_SCRIPT_RE =
-  /<script\b(?=[^>]*\btype\s*=\s*["']application\/ld\+json["'])[^>]*>([\s\S]*?)<\/script(?:[\t\n\f\r ][^>]*|\/[^>]*)?>/gi;
 
 /** `@type` may be a string or an array of strings in valid JSON-LD. */
 function hasJsonLdType(node: Record<string, unknown>, type: string): boolean {
@@ -306,14 +305,20 @@ function hasDocsArticle(value: unknown): boolean {
 }
 
 function documentHasDocsArticle(html: string): boolean {
-  for (const match of html.matchAll(JSON_LD_SCRIPT_RE)) {
+  let found = false;
+  rewriteHtmlScriptBlocks(html, (block) => {
+    const original = `${block.openTag}${block.body}${block.closeTag}`;
+    if (found || getHtmlTagAttribute(block.openTag, 'type')?.trim().toLowerCase() !== 'application/ld+json') {
+      return original;
+    }
     try {
-      if (hasDocsArticle(JSON.parse(match[1] ?? ''))) return true;
+      found = hasDocsArticle(JSON.parse(block.body));
     } catch {
       // The main rewrite logs parse failures and leaves those blocks untouched.
     }
-  }
-  return false;
+    return original;
+  });
+  return found;
 }
 
 function docsSlugForPathname(pathname: string | undefined): string | null {
@@ -512,21 +517,16 @@ function withDocsArticleAuthor(value: unknown, pathname?: string): unknown {
  */
 export function rewriteDocsEntityGraph(html: string, pathname?: string): string {
   let articlePresent = documentHasDocsArticle(html);
-  return html.replace(JSON_LD_SCRIPT_RE, (script, body: string) => {
+  return rewriteHtmlScriptBlocks(html, (block) => {
+    const script = `${block.openTag}${block.body}${block.closeTag}`;
+    if (getHtmlTagAttribute(block.openTag, 'type')?.trim().toLowerCase() !== 'application/ld+json') return script;
     try {
-      const next = rewriteDocsJsonLdValue(JSON.parse(body), pathname, !articlePresent);
+      const next = rewriteDocsJsonLdValue(JSON.parse(block.body), pathname, !articlePresent);
       if (next === null) return '';
       articlePresent ||= hasDocsArticle(next);
-      // Escape `<` so a `</script>` inside any string value cannot close the
-      // element early. JSON.parse turns Mintlify's escaped `<\/script>` back
-      // into a literal, and JSON.stringify would re-emit it raw. Mirrors
-      // escapeJsonScript in scripts/build-crawlable-corpus.mjs.
       const serialized = JSON.stringify(next).replace(/</g, '\\u003c');
       return `<script type="application/ld+json">${serialized}</script>`;
     } catch (err) {
-      // Fail open so a shape we cannot parse still reaches the reader, but say
-      // so: without this the vendor WebSite silently ships behind a 200 and the
-      // response headers look identical to a successful rewrite.
       console.error('[docs-locale-seo] JSON-LD rewrite failed; shipping upstream block', {
         pathname,
         error: err instanceof Error ? err.message : String(err),
