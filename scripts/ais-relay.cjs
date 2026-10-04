@@ -178,11 +178,26 @@ const requestRateBuckets = new Map(); // key: route:ip -> { count, resetAt }
 const logThrottleState = new Map(); // key: event key -> timestamp
 
 // Safe response: guard against "headers already sent" crashes
+function escapeHtmlText(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[char]);
+}
+
 function safeEnd(res, statusCode, headers, body) {
   if (res.headersSent || res.writableEnded) return false;
   try {
-    res.writeHead(statusCode, headers);
-    res.end(body);
+    const safeHeaders = { ...headers, 'X-Content-Type-Options': 'nosniff' };
+    const contentTypeKey = Object.keys(safeHeaders).find((key) => key.toLowerCase() === 'content-type');
+    const contentType = String(contentTypeKey ? safeHeaders[contentTypeKey] : '').toLowerCase();
+    const safeBody = contentType.includes('text/html') ? escapeHtmlText(body) : body;
+    if (!contentTypeKey) safeHeaders['Content-Type'] = 'application/octet-stream';
+    res.writeHead(statusCode, safeHeaders);
+    res.end(safeBody);
     return true;
   } catch {
     return false;
