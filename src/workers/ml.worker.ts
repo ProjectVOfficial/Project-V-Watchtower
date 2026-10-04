@@ -190,8 +190,23 @@ async function embedTexts(texts: string[]): Promise<number[][]> {
 }
 
 async function summarizeTexts(texts: string[], modelId = 'summarization'): Promise<string[]> {
-  await loadModel(modelId);
-  const pipe = loadedPipelines.get(modelId)!;
+  let safeModelId: 'summarization' | 'summarization-beta';
+  switch (modelId) {
+    case 'summarization':
+      safeModelId = 'summarization';
+      break;
+    case 'summarization-beta':
+      safeModelId = 'summarization-beta';
+      break;
+    default:
+      throw new Error('Unsupported summarization model');
+  }
+
+  await loadModel(safeModelId);
+  const pipe = safeModelId === 'summarization'
+    ? loadedPipelines.get('summarization')
+    : loadedPipelines.get('summarization-beta');
+  if (typeof pipe !== 'function') throw new Error('Summarization pipeline is unavailable');
 
   const results: string[] = [];
   for (const text of texts) {
