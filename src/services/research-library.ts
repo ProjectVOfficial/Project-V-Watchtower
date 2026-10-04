@@ -1,3 +1,5 @@
+import DOMPurify from 'dompurify';
+
 export type ResearchDocumentKind = 'pdf' | 'text' | 'markdown' | 'html' | 'csv' | 'json' | 'memory';
 
 export interface ResearchChunk {
@@ -145,9 +147,8 @@ function compactWhitespace(value: string): string {
 }
 
 function stripHtml(value: string): string {
-  const doc = new DOMParser().parseFromString(value, 'text/html');
-  doc.querySelectorAll('script,style,noscript,svg').forEach((element) => element.remove());
-  return compactWhitespace(doc.body?.innerText ?? doc.documentElement.textContent ?? '');
+  const textOnly = DOMPurify.sanitize(value, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+  return compactWhitespace(textOnly);
 }
 
 function detectKind(file: File): ResearchDocumentKind {
