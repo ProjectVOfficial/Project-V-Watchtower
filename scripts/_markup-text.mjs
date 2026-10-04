@@ -81,3 +81,63 @@ export function removeMarkupComments(value) {
 
   return output;
 }
+
+
+function findTagEnd(input, start) {
+  let quote = '';
+  for (let index = start; index < input.length; index += 1) {
+    const char = input[index];
+    if (quote) {
+      if (char === quote) quote = '';
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '>') {
+      return index;
+    }
+  }
+  return -1;
+}
+
+export function removeMarkupBlocks(value, tagNames) {
+  let output = String(value ?? '');
+  for (const rawName of tagNames) {
+    const name = String(rawName).toLowerCase();
+    if (!name || [...name].some((char) => !/[a-z0-9-]/.test(char))) continue;
+
+    let searchFrom = 0;
+    while (searchFrom < output.length) {
+      const lower = output.toLowerCase();
+      const open = lower.indexOf('<' + name, searchFrom);
+      if (open === -1) break;
+
+      const boundary = lower[open + name.length + 1] ?? '';
+      if (boundary && boundary !== '>' && boundary !== '/' && !/\s/.test(boundary)) {
+        searchFrom = open + name.length + 1;
+        continue;
+      }
+
+      const openEnd = findTagEnd(output, open + name.length + 1);
+      if (openEnd === -1) {
+        output = output.slice(0, open);
+        break;
+      }
+
+      const close = lower.indexOf('</' + name, openEnd + 1);
+      if (close === -1) {
+        output = output.slice(0, open) + output.slice(openEnd + 1);
+        searchFrom = open;
+        continue;
+      }
+
+      const closeEnd = findTagEnd(output, close + name.length + 2);
+      if (closeEnd === -1) {
+        output = output.slice(0, open);
+        break;
+      }
+
+      output = output.slice(0, open) + output.slice(closeEnd + 1);
+      searchFrom = open;
+    }
+  }
+  return output;
+}
