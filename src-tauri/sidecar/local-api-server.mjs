@@ -1035,10 +1035,6 @@ async function dispatch(requestUrl, req, routes, context) {
     if (!videoId || !/^[A-Za-z0-9_-]{11}$/.test(videoId)) {
       return new Response('Invalid videoId', { status: 400, headers: { 'content-type': 'text/plain' } });
     }
-    const autoplay = requestUrl.searchParams.get('autoplay') === '0' ? '0' : '1';
-    const mute = requestUrl.searchParams.get('mute') === '0' ? '0' : '1';
-    const vq = ['small','medium','large','hd720','hd1080'].includes(requestUrl.searchParams.get('vq') || '') ? requestUrl.searchParams.get('vq') : '';
-    const origin = `http://localhost:${context.port}`;
     const html = `<!doctype html>
 <html><head>
 <meta charset="utf-8">
