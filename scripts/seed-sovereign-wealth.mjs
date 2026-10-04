@@ -552,11 +552,13 @@ const INFOBOX_AUM_LABELS = [
 export function detectCurrency(text) {
   const haystack = String(text || '');
   for (const [symbol, iso] of CURRENCY_SYMBOL_TO_ISO) {
-    // `$` / `kr` are short + could false-match in rich text; require
-    // either a space before or start-of-string immediately before the
-    // token, and a digit (optional space) after.
-    if (symbol === '$' || symbol === 'kr') {
-      const matchesShortSymbol = symbol === '
+    // Short symbols require a left boundary and a following digit.
+    if (symbol === '$') {
+      if (/(^|\s)\$\s*\d/.test(haystack)) return iso;
+      continue;
+    }
+    if (symbol === 'kr') {
+      if (/(^|\s)kr\s*\d/i.test(haystack)) return iso;
       continue;
     }
     if (haystack.includes(symbol)) return iso;
