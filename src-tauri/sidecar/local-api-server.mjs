@@ -365,9 +365,18 @@ function toHeaders(nodeHeaders, options = {}) {
 }
 
 async function proxyToCloud(requestUrl, req, remoteBase) {
-  const target = `${remoteBase}${requestUrl.pathname}${requestUrl.search}`;
+  let base;
+  try {
+    base = new URL(remoteBase);
+  } catch {
+    throw new Error('Invalid cloud fallback URL');
+  }
+  if (base.protocol !== 'https:' || base.username || base.password) {
+    throw new Error('Cloud fallback must be an HTTPS URL without credentials');
+  }
+  const target = new URL(`${requestUrl.pathname}${requestUrl.search}`, base);
   const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req);
-  return fetch(target, {
+  return fetchWithTimeout(target.toString(), {
     method: req.method,
     // Strip browser-origin headers for server-to-server parity.
     headers: toHeaders(req.headers, { stripOrigin: true }),
@@ -545,23 +554,35 @@ function makeCorsHeaders(req) {
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
-  // Use node:https with IPv4 forced — Node.js built-in fetch (undici) tries IPv6
-  // first and some servers (EIA, NASA FIRMS) have broken IPv6 causing ETIMEDOUT.
+  // Validate every non-local outbound URL at the network boundary. This keeps
+  // callers from accidentally turning provider probes or cloud fallback into SSRF.
+  const allowPrivate = options.allowPrivate === true;
+  const requestOptions = { ...options };
+  delete requestOptions.allowPrivate;
+
   const u = new URL(url);
+  let resolvedAddress = requestOptions.resolvedAddress;
+  if (!allowPrivate) {
+    const safety = await isSafeUrl(u.toString());
+    if (!safety.safe) throw new Error(`Unsafe outbound URL: ${safety.reason}`);
+    if (!resolvedAddress) {
+      resolvedAddress = safety.resolvedAddresses?.find((addr) => /^\d+\.\d+\.\d+\.\d+$/.test(addr));
+    }
+  }
   if (u.protocol === 'https:') {
     return new Promise((resolve, reject) => {
       const reqOpts = {
         hostname: u.hostname,
         port: u.port || 443,
         path: u.pathname + u.search,
-        method: options.method || 'GET',
-        headers: options.headers || {},
+        method: requestOptions.method || 'GET',
+        headers: requestOptions.headers || {},
         family: 4,
       };
       // Pin to a pre-resolved IP to prevent TOCTOU DNS rebinding.
       // The hostname is kept for SNI / TLS certificate validation.
-      if (options.resolvedAddress) {
-        reqOpts.lookup = (_hostname, _opts, cb) => cb(null, options.resolvedAddress, 4);
+      if (resolvedAddress) {
+        reqOpts.lookup = (_hostname, _opts, cb) => cb(null, resolvedAddress, 4);
       }
       const req = https.request(reqOpts, (res) => {
         const chunks = [];
@@ -579,8 +600,8 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
       });
       req.on('error', reject);
       req.setTimeout(timeoutMs, () => { req.destroy(new Error('Request timed out')); });
-      if (options.body) {
-        const body = normalizeRequestBody(options.body);
+      if (requestOptions.body) {
+        const body = normalizeRequestBody(requestOptions.body);
         if (body != null) req.write(body);
       }
       req.end();
@@ -590,17 +611,17 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
   // For pinned addresses on plain HTTP, rewrite the URL to connect to the
   // validated IP and set the Host header so virtual-host routing still works.
   let fetchUrl = url;
-  const fetchHeaders = { ...(options.headers || {}) };
-  if (options.resolvedAddress && u.protocol === 'http:') {
+  const fetchHeaders = { ...(requestOptions.headers || {}) };
+  if (resolvedAddress && u.protocol === 'http:') {
     const pinned = new URL(url);
     fetchHeaders['Host'] = pinned.host;
-    pinned.hostname = options.resolvedAddress;
+    pinned.hostname = resolvedAddress;
     fetchUrl = pinned.toString();
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(fetchUrl, { ...options, headers: fetchHeaders, signal: controller.signal });
+    return await fetch(fetchUrl, { ...requestOptions, headers: fetchHeaders, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
@@ -826,17 +847,19 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
       try {
         const parsed = new URL(value);
         if (!['http:', 'https:'].includes(parsed.protocol)) return fail('Must be an http(s) URL');
+        const localHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
+        if (!localHosts.has(parsed.hostname)) return fail('Ollama URL must use a loopback host');
         // Probe the OpenAI-compatible models endpoint
         probeUrl = new URL('/v1/models', value).toString();
       } catch {
         return fail('Invalid URL');
       }
-      const response = await fetchWithTimeout(probeUrl, { method: 'GET' }, 8000);
+      const response = await fetchWithTimeout(probeUrl, { method: 'GET', allowPrivate: true }, 8000);
       if (!response.ok) {
         // Fall back to native Ollama /api/tags endpoint
         try {
           const tagsUrl = new URL('/api/tags', value).toString();
-          const tagsResponse = await fetchWithTimeout(tagsUrl, { method: 'GET' }, 8000);
+          const tagsResponse = await fetchWithTimeout(tagsUrl, { method: 'GET', allowPrivate: true }, 8000);
           if (!tagsResponse.ok) return fail(`Ollama probe failed (${tagsResponse.status})`);
           return ok('Ollama endpoint verified (native API)');
         } catch {
