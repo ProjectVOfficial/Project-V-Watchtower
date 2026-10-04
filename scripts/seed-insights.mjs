@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { stripMarkupText } from './_markup-text.mjs';
 
 import {
   loadEnvFile,
@@ -289,8 +290,7 @@ function stripReasoningPreamble(text) {
 
 function sanitizeTitle(title) {
   if (typeof title !== 'string') return '';
-  return title
-    .replace(/<[^>]*>/g, '')
+  return stripMarkupText(title)
     .replace(/[\x00-\x1f\x7f]/g, '')
     .slice(0, MAX_HEADLINE_LEN)
     .trim();
