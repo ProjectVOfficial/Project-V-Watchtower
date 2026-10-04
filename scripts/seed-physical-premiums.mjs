@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { removeMarkupComments } from './_markup-text.mjs';
 
 /**
  * Seed Shanghai Gold Exchange physical benchmarks against existing COMEX
@@ -598,7 +599,7 @@ export function parseSgeBenchmarkHtml(html, { contract, unit }) {
     throw nonRetryableError(`No valid ${contract} benchmark rows in SGE response`);
   }
 
-  const withoutComments = html.replace(/<!--[\s\S]*?-->/g, '');
+  const withoutComments = removeMarkupComments(html);
   const rows = [...withoutComments.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
   const expectedHeader = ['Trade Date', 'Contract', 'Benchmark Price AM', 'Benchmark Price PM'];
   const header = rows.map((match) => cellsFromRow(match[1], 'th')).find((cells) => cells.length > 0);
