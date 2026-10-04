@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { stripMarkupText } from './_markup-text.mjs';
 //
 // FATF — black & grey AML/CFT listings
 // Canonical key: economic:fatf-listing:v1
@@ -329,7 +330,7 @@ export function findPublicationLink(html, labelFragment) {
 }
 
 function stripHtml(s) {
-  return s.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ').trim();
+  return stripMarkupText(s).replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ').trim();
 }
 
 // Extract country names from a FATF publication page. The page renders
