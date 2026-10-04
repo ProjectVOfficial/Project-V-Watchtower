@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import './styles/workspace-windows.css';
 import './styles/camera-desk.css';
 import { applyStoredTheme } from '@/utils/theme-manager';
@@ -126,7 +127,7 @@ function render(): void {
   const editingStream = editingStreamId ? store.streams.find((stream) => stream.id === editingStreamId) ?? null : null;
   const listedStreams = sourceList();
   const archivedCoreStreams = getArchivedBuiltInCameraStreams(store);
-  mount!.innerHTML = `
+  mount!.innerHTML = DOMPurify.sanitize(`
     <div class="pv-workspace-shell pv-camera-desk-shell">
       <header class="pv-workspace-header">
         <div class="pv-workspace-brand"><span>PROJECT V // LIVE OPERATIONS</span><strong>CAMERA WALL</strong></div>
@@ -180,7 +181,7 @@ function render(): void {
       <footer class="pv-window-status ${statusClass}" data-camera-status>${escapeHtml(statusMessage)}</footer>
       ${addMode || editingStream ? streamDialog(editingStream) : ''}
       ${customGroups.length ? '' : ''}
-    </div>`;
+    </div>`);
 
   bindControls();
   bindMedia();
