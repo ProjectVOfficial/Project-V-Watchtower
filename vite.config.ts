@@ -568,10 +568,10 @@ function rssProxyPlugin(): Plugin {
           }
 
           const controller = new AbortController();
-          const timeout = feedUrl.includes('news.google.com') ? 20000 : 12000;
+          const timeout = parsed.hostname === 'news.google.com' ? 20000 : 12000;
           const timer = setTimeout(() => controller.abort(), timeout);
 
-          const response = await fetch(feedUrl, {
+          const response = await fetch(parsed.toString(), {
             signal: controller.signal,
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
