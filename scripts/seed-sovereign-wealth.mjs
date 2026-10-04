@@ -549,10 +549,6 @@ const INFOBOX_AUM_LABELS = [
  * Scans CURRENCY_SYMBOL_TO_ISO in order so longer/more-specific
  * prefixes (US$, S$) match before bare `$` / `kr`.
  */
-function escapeRegExpLiteral(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\export function detectCurrency(text) {');
-}
-
 export function detectCurrency(text) {
   const haystack = String(text || '');
   for (const [symbol, iso] of CURRENCY_SYMBOL_TO_ISO) {
@@ -560,8 +556,554 @@ export function detectCurrency(text) {
     // either a space before or start-of-string immediately before the
     // token, and a digit (optional space) after.
     if (symbol === '$' || symbol === 'kr') {
-      const re = new RegExp(`(^|\\s)${escapeRegExpLiteral(symbol)}\\s*\\d`);
-      if (re.test(haystack)) return iso;
+      const matchesShortSymbol = symbol === '
+      continue;
+    }
+    if (haystack.includes(symbol)) return iso;
+  }
+  return null;
+}
+
+/**
+ * Parse a Wikipedia infobox HTML fragment for an AUM value. Returns
+ * the NATIVE-currency value plus its ISO-4217 code so the caller can
+ * apply the project-shared FX rates (`getSharedFxRates`) at orchestration
+ * time. Returning raw-native avoids duplicating the FX conversion layer
+ * already maintained in `scripts/_seed-utils.mjs` for seed-grocery-basket,
+ * seed-fuel-prices, seed-bigmac, etc.
+ *
+ * Returns { valueNative: number, currencyNative: string, aumYear: number }
+ * or null if no usable row.
+ *
+ * Exported pure so a committed fixture can exercise the parsing + currency
+ * detection without a live fetch.
+ */
+export function parseWikipediaArticleInfobox(html) {
+  const infoboxMatch = html.match(/<table[^>]*class="[^"]*infobox[^"]*"[^>]*>([\s\S]*?)<\/table>/);
+  if (!infoboxMatch) return null;
+  const box = infoboxMatch[1];
+
+  const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
+  let rowMatch;
+  while ((rowMatch = rowRe.exec(box)) !== null) {
+    // Split the row into th (label) + td (value). Either can be missing
+    // or out-of-order in edge cases, so use a two-pass extraction.
+    const label = (rowMatch[1].match(/<th[^>]*>([\s\S]*?)<\/th>/)?.[1] ?? '');
+    const value = (rowMatch[1].match(/<td[^>]*>([\s\S]*?)<\/td>/)?.[1] ?? '');
+    const labelText = stripHtmlInline(label);
+    if (!INFOBOX_AUM_LABELS.some((re) => re.test(labelText))) continue;
+
+    const valueText = stripHtmlInline(value);
+    // Example values:
+    //   "S$ 434 billion (2025) 2"
+    //   "US$ 1,128 billion"
+    //   "€ 500 million"
+    //   "NOK 18.7 trillion (2025)"
+    const numMatch = valueText.match(/([\d,]+(?:\.\d+)?)\s*(trillion|billion|million)/i);
+    if (!numMatch) continue;
+    const rawNum = parseFloat(numMatch[1].replace(/,/g, ''));
+    if (!Number.isFinite(rawNum) || rawNum <= 0) continue;
+    const unit = numMatch[2].toLowerCase();
+    const unitMultiplier = unit === 'trillion'
+      ? 1_000_000_000_000
+      : unit === 'billion'
+        ? 1_000_000_000
+        : 1_000_000;
+    const valueNative = rawNum * unitMultiplier;
+
+    const currencyNative = detectCurrency(valueText) ?? 'USD';
+
+    const yearMatch = valueText.match(/\((\d{4})\)/);
+    const aumYear = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
+
+    return { valueNative, currencyNative, aumYear };
+  }
+  return null;
+}
+
+/**
+ * Look up the USD-per-unit rate for a currency from the shared FX map.
+ * `fxRates` is the object returned by `getSharedFxRates()` (keys are
+ * ISO-4217 codes). Falls back to SHARED_FX_FALLBACKS for any currency
+ * not in the live map. Returns null if the currency is unknown — the
+ * caller should treat that as "cannot convert, skip this fund" rather
+ * than silently pretending the value is USD.
+ */
+export function lookupUsdRate(currency, fxRates) {
+  if (currency === 'USD') return 1.0;
+  const rate = fxRates?.[currency] ?? SHARED_FX_FALLBACKS[currency];
+  return (rate != null && rate > 0) ? rate : null;
+}
+
+async function fetchWikipediaInfobox(fund, fxRates) {
+  const articleUrl = fund.wikipedia?.articleUrl;
+  if (!articleUrl) return null;
+  const resp = await fetch(articleUrl, {
+    headers: {
+      'User-Agent': CHROME_UA,
+      'Accept': 'text/html,application/xhtml+xml',
+    },
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!resp.ok) {
+    console.warn(`[seed-sovereign-wealth] ${fund.country}:${fund.fund} infobox fetch HTTP ${resp.status}`);
+    return null;
+  }
+  const html = await resp.text();
+  const hit = parseWikipediaArticleInfobox(html);
+  if (!hit) return null;
+  const usdRate = lookupUsdRate(hit.currencyNative, fxRates);
+  if (usdRate == null) {
+    console.warn(`[seed-sovereign-wealth] ${fund.country}:${fund.fund} infobox currency ${hit.currencyNative} has no FX rate; skipping`);
+    return null;
+  }
+  return {
+    aum: hit.valueNative * usdRate,
+    aumYear: hit.aumYear,
+    source: 'wikipedia_infobox',
+    currencyNative: hit.currencyNative,
+    fxRate: usdRate,
+  };
+}
+
+// ── Aggregation ──
+
+/**
+ * Pure predicate: should this manifest fund be SKIPPED from the
+ * SWF buffer calculation? Returns the skip reason string or null.
+ *
+ * Two skip conditions (Phase 1 §schema):
+ *   - `excluded_overlaps_with_reserves: true` — AUM already counted
+ *     in central-bank FX reserves (SAFE-IC, HKMA-EF). Excluding
+ *     prevents double-counting against reserveAdequacy /
+ *     liquidReserveAdequacy.
+ *   - `aum_verified: false` — fund AUM not primary-source-confirmed.
+ *     Loaded for documentation; excluded from scoring per the
+ *     data-integrity rule (Codex Round 1 #7).
+ *
+ * Pure function — exported for tests.
+ *
+ * @param {{ classification?: { excludedOverlapsWithReserves?: boolean }, aumVerified?: boolean }} fund
+ * @returns {'excluded_overlaps_with_reserves' | 'aum_unverified' | null}
+ */
+export function shouldSkipFundForBuffer(fund) {
+  if (fund?.classification?.excludedOverlapsWithReserves === true) {
+    return 'excluded_overlaps_with_reserves';
+  }
+  if (fund?.aumVerified === false) {
+    return 'aum_unverified';
+  }
+  return null;
+}
+
+/**
+ * Pure helper: apply the `aum_pct_of_audited` multiplier to a
+ * resolved AUM value. When the fund's classification has no
+ * `aum_pct_of_audited`, returns the AUM unchanged.
+ *
+ * Used for fund-of-funds split entries (e.g. KIA-GRF is ~5% of the
+ * audited KIA total; KIA-FGF is ~95%).
+ *
+ * Pure function — exported for tests.
+ *
+ * @param {number} resolvedAumUsd
+ * @param {{ classification?: { aumPctOfAudited?: number } }} fund
+ * @returns {number}
+ */
+export function applyAumPctOfAudited(resolvedAumUsd, fund) {
+  const pct = fund?.classification?.aumPctOfAudited;
+  if (typeof pct === 'number' && pct > 0 && pct <= 1) {
+    return resolvedAumUsd * pct;
+  }
+  return resolvedAumUsd;
+}
+
+async function fetchFundAum(fund, wikipediaCache, fxRates) {
+  // Source priority: official → IFSWF → Wikipedia list → Wikipedia
+  // per-fund infobox. Short-circuit on first non-null return so the
+  // highest-confidence source wins. The infobox sub-tier is last
+  // because it is per-fund fetch (N network round-trips, one per fund
+  // that misses the list article) — amortizing over the list article
+  // cache first minimizes live traffic.
+  const official = await fetchOfficialDisclosure(fund);
+  if (official) return official;
+  const ifswf = await fetchIfswfFiling(fund);
+  if (ifswf) return ifswf;
+  const wikipediaList = await fetchWikipediaRanking(fund, wikipediaCache);
+  if (wikipediaList) return wikipediaList;
+  const wikipediaInfobox = await fetchWikipediaInfobox(fund, fxRates);
+  if (wikipediaInfobox) return wikipediaInfobox;
+  return null;
+}
+
+// Build the fxSymbols map getSharedFxRates expects. We request every
+// currency the infobox parser can reasonably surface — this is a
+// superset of what any single seed run will need, but it keeps the
+// shared Redis FX cache warm for other seeders and costs one Yahoo
+// fetch per uncached ccy. The set matches CURRENCY_SYMBOL_TO_ISO.
+function buildFxSymbolsForSwf() {
+  const ccys = new Set(CURRENCY_SYMBOL_TO_ISO.map(([, iso]) => iso));
+  const symbols = {};
+  for (const ccy of ccys) {
+    if (ccy === 'USD') continue;
+    symbols[ccy] = `${ccy}USD=X`;
+  }
+  return symbols;
+}
+
+/**
+ * Net-imports denominator transformation for the SWF rawMonths
+ * calculation.
+ *
+ *   netImports = grossImports × (1 − reexportShareOfImports)
+ *
+ * For countries without a re-export adjustment (reexportShareOfImports = 0),
+ * netImports === grossImports — status-quo behaviour.
+ *
+ * For re-export hubs, the fraction of gross imports that flows through
+ * as re-exports does not represent domestic consumption, so the SWF's
+ * "months of imports covered" should be measured against the RESIDUAL
+ * import stream that actually settles.
+ *
+ * Exported for unit tests that pin the denominator math independently
+ * of live-API fixtures.
+ *
+ * @param {number} grossImportsUsd  Total annual imports in USD (WB NE.IMP.GNFS.CD)
+ * @param {number} reexportShareOfImports  0..1 inclusive; 0 = no adjustment
+ * @returns {number} Net annual imports in USD
+ */
+export function computeNetImports(grossImportsUsd, reexportShareOfImports) {
+  if (!Number.isFinite(grossImportsUsd) || grossImportsUsd <= 0) {
+    throw new Error(`computeNetImports: grossImportsUsd must be positive finite, got ${grossImportsUsd}`);
+  }
+  const share = Number.isFinite(reexportShareOfImports) ? reexportShareOfImports : 0;
+  if (share < 0 || share >= 1) {
+    throw new Error(`computeNetImports: reexportShareOfImports must be in [0, 1), got ${share}`);
+  }
+  return grossImportsUsd * (1 - share);
+}
+
+export async function fetchSovereignWealth() {
+  const manifest = loadSwfManifest();
+  // Re-export share: per-country fraction of gross imports that flow
+  // through as re-exports without settling as domestic consumption.
+  // Sourced from Comtrade via the sibling Reexport-Share seeder that
+  // runs immediately before this one inside the resilience-recovery
+  // bundle. loadReexportShareFromRedis() enforces bundle-run freshness
+  // — if the sibling's seed-meta predates this bundle's start, all
+  // countries fall back to gross imports (hard fail-safe). Countries
+  // not in the returned map get netImports = grossImports (status-quo
+  // behaviour). Absence MUST NOT throw or zero the denominator.
+  const reexportShareByCountry = await loadReexportShareFromRedis();
+  const [imports, wikipediaCache, fxRates] = await Promise.all([
+    fetchAnnualImportsUsd(),
+    loadWikipediaRankingsCache(),
+    getSharedFxRates(buildFxSymbolsForSwf(), SHARED_FX_FALLBACKS),
+  ]);
+
+  const countries = {};
+  const sourceMix = { official: 0, ifswf: 0, wikipedia_list: 0, wikipedia_infobox: 0 };
+  const unmatched = [];
+  // Provenance audit for the cohort-sanity report: which countries had a
+  // net-imports adjustment applied, and by how much. Keeps the scorer
+  // transparent about where denominators diverge from gross imports.
+  const reexportAdjustments = [];
+
+  for (const [iso2, funds] of groupFundsByCountry(manifest)) {
+    const importsEntry = imports[iso2];
+    if (!importsEntry) {
+      // WB `NE.IMP.GNFS.CD` missing for this country (transient outage
+      // or a country with spotty WB coverage). Silently dropping would
+      // let the downstream scorer interpret the absence as "no SWF" and
+      // exclude the dim as structurally not-applicable — substantively
+      // wrong for a manifest country whose import denominator is missing.
+      // Log it loudly and surface via the unmatched list so the seed-meta
+      // observer can alert.
+      console.warn(`[seed-sovereign-wealth] ${iso2} skipped: World Bank imports (${IMPORTS_INDICATOR}) missing — cannot compute rawMonths denominator`);
+      for (const fund of funds) unmatched.push(`${fund.country}:${fund.fund} (no WB imports)`);
+      continue;
+    }
+
+    // PR 3A net-imports denominator. For re-export hubs (UNCTAD-cited
+    // entries in the manifest), replace the gross-imports denominator
+    // with net imports via `computeNetImports`. Countries without a
+    // manifest entry get grossImports unchanged (share=0 → identity).
+    const reexportEntry = reexportShareByCountry.get(iso2);
+    const reexportShare = reexportEntry?.reexportShareOfImports ?? 0;
+    const denominatorImports = computeNetImports(importsEntry.importsUsd, reexportShare);
+    if (reexportShare > 0) {
+      reexportAdjustments.push({
+        country: iso2,
+        grossImportsUsd: importsEntry.importsUsd,
+        reexportShareOfImports: reexportShare,
+        netImportsUsd: denominatorImports,
+        sourceYear: reexportEntry?.year ?? null,
+      });
+    }
+
+    const fundRecords = [];
+    for (const fund of funds) {
+      const skipReason = shouldSkipFundForBuffer(fund);
+      if (skipReason) {
+        console.log(`[seed-sovereign-wealth]   ${fund.country}:${fund.fund} skipped — ${skipReason}`);
+        continue;
+      }
+
+      // AUM resolution: prefer manifest-provided primary-source AUM
+      // when verified; fall back to the existing Wikipedia/IFSWF
+      // resolution chain otherwise (existing entries that pre-date
+      // the schema extension still work unchanged).
+      let aum = null;
+      if (fund.aumVerified === true && typeof fund.aumUsd === 'number') {
+        aum = { aum: fund.aumUsd, aumYear: fund.aumYear ?? null, source: 'manifest_primary' };
+      } else {
+        aum = await fetchFundAum(fund, wikipediaCache, fxRates);
+      }
+      if (!aum) {
+        unmatched.push(`${fund.country}:${fund.fund}`);
+        continue;
+      }
+
+      const adjustedAum = applyAumPctOfAudited(aum.aum, fund);
+      const aumPct = fund.classification?.aumPctOfAudited;
+      sourceMix[aum.source] = (sourceMix[aum.source] ?? 0) + 1;
+
+      const { access, liquidity, transparency } = fund.classification;
+      const rawMonths = (adjustedAum / denominatorImports) * 12;
+      const effectiveMonths = rawMonths * access * liquidity * transparency;
+
+      fundRecords.push({
+        fund: fund.fund,
+        aum: adjustedAum,
+        aumYear: aum.aumYear,
+        source: aum.source,
+        ...(aumPct != null ? { aumPctOfAudited: aumPct } : {}),
+        access,
+        liquidity,
+        transparency,
+        rawMonths,
+        effectiveMonths,
+      });
+    }
+
+    if (fundRecords.length === 0) continue;
+    const totalEffectiveMonths = fundRecords.reduce((s, f) => s + f.effectiveMonths, 0);
+    // Completeness denominator excludes funds that were INTENTIONALLY
+    // skipped from buffer scoring (excluded_overlaps_with_reserves OR
+    // aum_verified=false). Without this, manifest entries that exist
+    // for documentation only would artificially depress completeness
+    // for countries with mixed scorable + non-scorable funds — e.g.
+    // UAE (4 scorable + EIA unverified) would show completeness=0.8
+    // even when every scorable fund matched, and CN (CIC + NSSF
+    // scorable + SAFE-IC excluded) would show 0.67.
+    //
+    // The right denominator is "scorable funds for this country":
+    // funds where shouldSkipFundForBuffer returns null. Documentation-
+    // only entries are neither matched nor expected; they don't appear
+    // in the ratio at all.
+    const scorableFunds = funds.filter((f) => shouldSkipFundForBuffer(f) === null);
+    const expectedFunds = scorableFunds.length;
+    const matchedFunds = fundRecords.length;
+    const completeness = expectedFunds > 0 ? matchedFunds / expectedFunds : 0;
+    // `completeness` signals partial-seed on multi-fund countries (AE,
+    // SG). Downstream scorer must derate the country when completeness
+    // < 1.0 — silently emitting partial totalEffectiveMonths would
+    // under-rank countries whose secondary fund transiently drifted on
+    // Wikipedia. The country stays in the payload (so the scorer can
+    // use the partial number for IMPUTE-level coverage), but only
+    // completeness=1.0 countries count toward recordCount / health.
+    if (completeness < 1.0) {
+      console.warn(`[seed-sovereign-wealth] ${iso2} partial: ${matchedFunds}/${expectedFunds} scorable funds matched — completeness=${completeness.toFixed(2)}`);
+    }
+    countries[iso2] = {
+      funds: fundRecords,
+      totalEffectiveMonths,
+      // `annualImports` preserved for backwards compatibility + audit.
+      // `denominatorImports` (post-PR-3A) is the value ACTUALLY used in
+      // rawMonths math. For countries without a re-export adjustment
+      // the two are identical; for UNCTAD-cited re-export hubs the
+      // latter is smaller.
+      annualImports: importsEntry.importsUsd,
+      denominatorImports,
+      reexportShareOfImports: reexportShare,
+      expectedFunds,
+      matchedFunds,
+      completeness,
+    };
+  }
+
+  if (unmatched.length > 0) {
+    console.warn(`[seed-sovereign-wealth] ${unmatched.length} fund(s) unmatched across all tiers: ${unmatched.join(', ')}`);
+  }
+
+  const summary = buildCoverageSummary(manifest, imports, countries);
+  console.log(`[seed-sovereign-wealth] manifest coverage: ${summary.matchedFunds}/${summary.expectedFunds} funds across ${summary.expectedCountries} countries`);
+  for (const row of summary.countryStatuses) {
+    const tag = row.status === 'complete' ? 'OK  ' : row.status === 'partial' ? 'PART' : 'MISS';
+    const extra = row.reason ? ` — ${row.reason}` : '';
+    console.log(`[seed-sovereign-wealth]   ${tag} ${row.country} ${row.matched}/${row.expected}${extra}`);
+  }
+
+  if (reexportAdjustments.length > 0) {
+    console.log(`[seed-sovereign-wealth] re-export adjustment applied to ${reexportAdjustments.length} country/countries:`);
+    for (const adj of reexportAdjustments) {
+      console.log(`[seed-sovereign-wealth]   ${adj.country} share=${adj.reexportShareOfImports.toFixed(2)} gross=$${(adj.grossImportsUsd / 1e9).toFixed(1)}B net=$${(adj.netImportsUsd / 1e9).toFixed(1)}B (source year ${adj.sourceYear ?? 'n/a'})`);
+    }
+  } else {
+    console.log(`[seed-sovereign-wealth] re-export manifest is empty; all countries use gross imports as the rawMonths denominator (status-quo behaviour)`);
+  }
+
+  const usedWikipedia = sourceMix.wikipedia_list + sourceMix.wikipedia_infobox > 0;
+  return {
+    countries,
+    seededAt: new Date().toISOString(),
+    manifestVersion: manifest.manifestVersion,
+    sourceMix,
+    sourceAttribution: {
+      wikipedia: usedWikipedia ? WIKIPEDIA_SOURCE_ATTRIBUTION : undefined,
+    },
+    summary,
+    // PR 3A §net-imports. Published for downstream audit (cohort-
+    // sanity release-gate + operator verification). Empty array means
+    // the re-export manifest has no entries yet; follow-up PRs populate
+    // it with UNCTAD-cited shares per country.
+    reexportAdjustments,
+  };
+}
+
+/**
+ * Manifest-vs-seeded coverage summary. Exported so the enumeration logic
+ * is unit-testable — previously, a country that failed (no WB imports +
+ * no Wikipedia match) disappeared silently unless a log line happened to
+ * emit on the specific code path. This function guarantees every
+ * manifest country appears with an explicit status and reason.
+ *
+ * @param {{ funds: Array<{ country: string, fund: string }> }} manifest
+ * @param {Record<string, unknown>} imports Per-country import entries from pickLatestPerCountry
+ * @param {Record<string, { matchedFunds: number, expectedFunds: number, completeness: number }>} countries Seeded country payload
+ */
+export function buildCoverageSummary(manifest, imports, countries) {
+  // Coverage denominator excludes manifest entries that are
+  // documentation-only by design — funds with
+  // `excluded_overlaps_with_reserves: true` (SAFE-IC, HKMA-EF) or
+  // `aum_verified: false` (EIA). Counting them as "expected" would
+  // depress the headline coverage ratio for countries with mixed
+  // scorable + non-scorable fund rosters. Same fix as the per-country
+  // completeness denominator above; see comment there.
+  const scorableManifestFunds = manifest.funds.filter((f) => shouldSkipFundForBuffer(f) === null);
+  const expectedFundsTotal = scorableManifestFunds.length;
+  const expectedCountries = new Set(scorableManifestFunds.map((f) => f.country));
+  let matchedFundsTotal = 0;
+  for (const entry of Object.values(countries)) matchedFundsTotal += entry.matchedFunds;
+  // Every status carries a `reason` field so downstream consumers that
+  // iterate the persisted countryStatuses can safely dereference `.reason`
+  // without defensive checks. `complete` and `partial` use `null` to make
+  // the shape uniform; `missing` carries a human-readable string naming
+  // which upstream the operator should investigate (WB imports vs
+  // Wikipedia fund match).
+  const countryStatuses = [];
+  for (const iso2 of expectedCountries) {
+    const entry = countries[iso2];
+    if (entry && entry.completeness === 1.0) {
+      countryStatuses.push({ country: iso2, status: 'complete', matched: entry.matchedFunds, expected: entry.expectedFunds, reason: null });
+    } else if (entry) {
+      countryStatuses.push({ country: iso2, status: 'partial', matched: entry.matchedFunds, expected: entry.expectedFunds, reason: null });
+    } else {
+      const reason = imports[iso2] ? 'no fund AUM matched' : 'missing WB imports';
+      countryStatuses.push({
+        country: iso2,
+        status: 'missing',
+        matched: 0,
+        expected: countManifestFundsForCountry(manifest, iso2),
+        reason,
+      });
+    }
+  }
+  countryStatuses.sort((a, b) => a.country.localeCompare(b.country));
+  return {
+    expectedCountries: expectedCountries.size,
+    expectedFunds: expectedFundsTotal,
+    matchedCountries: Object.keys(countries).length,
+    matchedFunds: matchedFundsTotal,
+    countryStatuses,
+  };
+}
+
+function countManifestFundsForCountry(manifest, iso2) {
+  // Counts SCORABLE funds for the given country (excludes documentation-
+  // only entries: `excluded_overlaps_with_reserves: true` and
+  // `aum_verified: false`). Used by buildCoverageSummary's missing-
+  // country path so the "expected" figure on a missing country reflects
+  // what the seeder would actually try to score, not all manifest
+  // entries.
+  let n = 0;
+  for (const f of manifest.funds) {
+    if (f.country !== iso2) continue;
+    if (shouldSkipFundForBuffer(f) !== null) continue;
+    n++;
+  }
+  return n;
+}
+
+export function validate(data) {
+  // Tier 3 (Wikipedia) is now live; expected floor = 1 country once any
+  // manifest fund matches. We keep the floor lenient (>=0) during the
+  // first Railway-cron bake-in window so a transient Wikipedia fetch
+  // failure does not poison seed-meta for 30 days (see
+  // feedback_strict_floor_validate_fail_poisons_seed_meta.md). Once
+  // the seeder has ~7 days of clean runs, tighten to `>= 1`.
+  //
+  // Strict null check: `typeof null === 'object'` is true in JS, so a
+  // bare `typeof x === 'object'` would let `{ countries: null }` through
+  // and downstream consumers would crash on property access. Accept
+  // only a non-null plain object.
+  const c = data?.countries;
+  return c != null && typeof c === 'object' && !Array.isArray(c);
+}
+
+// Health-facing record count. Counts ONLY fully-matched countries
+// (completeness === 1.0), so a scraper drift on a secondary fund (e.g.
+// Mubadala while ADIA still matches, or Temasek while GIC still matches)
+// drops the recordCount seed-health signal — catching the partial-seed
+// silent-corruption class that an "any country that has any fund"
+// count would miss. Per-country completeness stays in the payload for
+// the scorer to derate; recordCount is the operational alarm.
+export function declareRecords(data) {
+  const countries = data?.countries ?? {};
+  let fully = 0;
+  for (const entry of Object.values(countries)) {
+    if (entry?.completeness === 1.0) fully++;
+  }
+  return fully;
+}
+
+if (process.argv[1]?.endsWith('seed-sovereign-wealth.mjs')) {
+  runSeed('resilience', 'recovery:sovereign-wealth', CANONICAL_KEY, fetchSovereignWealth, {
+    validateFn: validate,
+    ttlSeconds: CACHE_TTL_SECONDS,
+    sourceVersion: `swf-manifest-v1-${new Date().getFullYear()}`,
+    // Health-facing recordCount delegates to declareRecords so the
+    // seed-meta record_count stays consistent with the operational
+    // alarm (only countries whose manifest funds all matched count).
+    recordCount: declareRecords,
+    declareRecords,
+    schemaVersion: 1,
+    maxStaleMin: 86400,
+    // Empty payload is publishable so seed-meta record_count=0 can
+    // surface total SWF coverage loss operationally. A present
+    // `{countries:{}}` payload is not IMPUTE downstream: scorer Path 3
+    // treats each country as structurally not-applicable.
+    emptyDataIsFailure: false,
+  }).catch((err) => {
+    const _cause = err.cause ? ` (cause: ${err.cause.message || err.cause.code || err.cause})` : '';
+    console.error('FATAL:', (err.message || err) + _cause);
+    process.exit(1);
+  });
+}
+
+        ? /(^|\s)\$\s*\d/.test(haystack)
+        : /(^|\s)kr\s*\d/i.test(haystack);
+      if (matchesShortSymbol) return iso;
       continue;
     }
     if (haystack.includes(symbol)) return iso;
