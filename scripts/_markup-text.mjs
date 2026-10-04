@@ -60,3 +60,24 @@ export function stripMarkupText(value, { brToNewline = false } = {}) {
 
   return output;
 }
+
+
+export function removeMarkupComments(value) {
+  const input = String(value ?? '');
+  let output = '';
+  let index = 0;
+
+  while (index < input.length) {
+    const start = input.indexOf('<!--', index);
+    if (start === -1) {
+      output += input.slice(index);
+      break;
+    }
+    output += input.slice(index, start);
+    const end = input.indexOf('-->', start + 4);
+    if (end === -1) break;
+    index = end + 3;
+  }
+
+  return output;
+}
