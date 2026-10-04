@@ -1,3 +1,4 @@
+import { stripMarkupText } from './_markup-text.mjs';
 /**
  * Merges, deduplicates and enriches military base data from multiple sources
  * into a single final dataset for the map layer.
@@ -85,7 +86,7 @@ function loadJson(filepath, label) {
 
 function stripHtml(str) {
   if (!str || typeof str !== 'string') return str || '';
-  return str.replace(/<[^>]*>/g, '').trim();
+  return stripMarkupText(str).trim();
 }
 
 function toRad(deg) {
