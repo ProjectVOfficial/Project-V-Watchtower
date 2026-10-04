@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { stripMarkupText } from './_markup-text.mjs';
 
 import { get as httpsGet } from 'node:https';
 import { Readable } from 'node:stream';
@@ -281,11 +282,7 @@ export async function fetchCanadaBuys({ now = Date.now(), fetchTextFn = fetchTex
 }
 
 function decodeHtml(value) {
-  return decodeHtmlEntities(
-    String(value || '')
-      .replace(/<br\s*\/?\s*>/gi, '\n')
-      .replace(/<[^>]+>/g, ''),
-  )
+  return decodeHtmlEntities(stripMarkupText(value, { brToNewline: true }))
     .replace(/\s+/g, ' ')
     .trim();
 }
