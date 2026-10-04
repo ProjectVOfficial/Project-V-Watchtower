@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { removeMarkupBlocks, removeMarkupComments } from './_markup-text.mjs';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -114,7 +115,7 @@ export function inspectIndexability({ url, headers, body }) {
   }
 
   if (isHtml) {
-    const markup = String(body).replace(/<!--[\s\S]*?-->|<(script|style|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+    const markup = removeMarkupBlocks(removeMarkupComments(String(body)), ['script', 'style', 'template']);
     const head = /<head\b[^>]*>([\s\S]*?)<\/head\s*>/i.exec(markup);
     for (const match of markup.matchAll(/<(?:link|meta)\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi)) {
       const tag = match[0];

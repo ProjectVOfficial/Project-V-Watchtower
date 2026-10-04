@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import './styles/workspace-windows.css';
 import './styles/camera-desk.css';
 import { applyStoredTheme } from '@/utils/theme-manager';
@@ -77,12 +78,35 @@ function sourceList(): CameraStreamDefinition[] {
   return available;
 }
 
-function buildYouTubeUrl(videoId: string): string {
+function buildYouTubeUrl(videoId: string): string | null {
+  if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return null;
   if (isDesktopRuntime()) {
-    const params = new URLSearchParams({ videoId, autoplay: '1', mute: store.muted ? '1' : '0' });
-    return `http://localhost:${getLocalApiPort()}/api/youtube-embed?${params.toString()}`;
+    const port = Number(getLocalApiPort());
+    if (!Number.isInteger(port) || port < 1 || port > 65535) return null;
+    const url = new URL('/api/youtube-embed', `http://127.0.0.1:${port}`);
+    url.searchParams.set('videoId', videoId);
+    url.searchParams.set('autoplay', '1');
+    url.searchParams.set('mute', store.muted ? '1' : '0');
+    return url.href;
   }
-  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&mute=${store.muted ? '1' : '0'}&controls=1&modestbranding=1&playsinline=1&rel=0`;
+  const url = new URL(`/embed/${videoId}`, 'https://www.youtube-nocookie.com');
+  url.searchParams.set('autoplay', '1');
+  url.searchParams.set('mute', store.muted ? '1' : '0');
+  url.searchParams.set('controls', '1');
+  url.searchParams.set('modestbranding', '1');
+  url.searchParams.set('playsinline', '1');
+  url.searchParams.set('rel', '0');
+  return url.href;
+}
+
+function safeIframeUrl(raw: string): string | null {
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'https:' || url.username || url.password) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
 }
 
 function setStatus(message: string, error = false): void {
@@ -103,7 +127,7 @@ function render(): void {
   const editingStream = editingStreamId ? store.streams.find((stream) => stream.id === editingStreamId) ?? null : null;
   const listedStreams = sourceList();
   const archivedCoreStreams = getArchivedBuiltInCameraStreams(store);
-  mount!.innerHTML = `
+  mount!.innerHTML = DOMPurify.sanitize(`
     <div class="pv-workspace-shell pv-camera-desk-shell">
       <header class="pv-workspace-header">
         <div class="pv-workspace-brand"><span>PROJECT V // LIVE OPERATIONS</span><strong>CAMERA WALL</strong></div>
@@ -157,7 +181,7 @@ function render(): void {
       <footer class="pv-window-status ${statusClass}" data-camera-status>${escapeHtml(statusMessage)}</footer>
       ${addMode || editingStream ? streamDialog(editingStream) : ''}
       ${customGroups.length ? '' : ''}
-    </div>`;
+    </div>`);
 
   bindControls();
   bindMedia();
@@ -399,13 +423,20 @@ function bindMedia(): void {
       return;
     }
 
+    const iframeSource = stream.type === 'youtube' ? buildYouTubeUrl(stream.source) : safeIframeUrl(stream.source);
+    if (!iframeSource) {
+      fail();
+      return;
+    }
     const iframe = document.createElement('iframe');
-    iframe.src = stream.type === 'youtube' ? buildYouTubeUrl(stream.source) : stream.source;
+    iframe.src = iframeSource;
     iframe.title = `${stream.name} stream`;
     iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
     iframe.referrerPolicy = 'strict-origin-when-cross-origin';
     iframe.allowFullscreen = true;
-    if (stream.type === 'iframe') iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-forms allow-popups');
+    iframe.setAttribute('sandbox', stream.type === 'youtube'
+      ? 'allow-scripts allow-same-origin allow-presentation'
+      : 'allow-scripts allow-presentation');
     iframe.addEventListener('load', live);
     iframe.addEventListener('error', fail);
     host.replaceChildren(iframe);

@@ -114,6 +114,10 @@ const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/5
 // Block requests to private/reserved IP ranges to prevent the RSS proxy
 // from being used as a localhost pivot or internal network scanner.
 
+function isLoopbackHost(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+}
+
 function isPrivateIP(ip) {
   // IPv4-mapped IPv6 — extract the v4 portion
   const v4Mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
@@ -365,13 +369,24 @@ function toHeaders(nodeHeaders, options = {}) {
 }
 
 async function proxyToCloud(requestUrl, req, remoteBase) {
-  const target = `${remoteBase}${requestUrl.pathname}${requestUrl.search}`;
+  let base;
+  try {
+    base = new URL(remoteBase);
+  } catch {
+    throw new Error('Invalid cloud fallback URL');
+  }
+  const loopback = isLoopbackHost(base.hostname);
+  if ((!loopback && base.protocol !== 'https:') || !['http:', 'https:'].includes(base.protocol) || base.username || base.password) {
+    throw new Error('Cloud fallback must use HTTPS, except for loopback development endpoints');
+  }
+  const target = new URL(`${requestUrl.pathname}${requestUrl.search}`, base);
   const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req);
-  return fetch(target, {
+  return fetchWithTimeout(target.toString(), {
     method: req.method,
     // Strip browser-origin headers for server-to-server parity.
     headers: toHeaders(req.headers, { stripOrigin: true }),
     body,
+    ...(loopback ? { allowPrivate: true } : {}),
   });
 }
 
@@ -545,23 +560,35 @@ function makeCorsHeaders(req) {
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
-  // Use node:https with IPv4 forced — Node.js built-in fetch (undici) tries IPv6
-  // first and some servers (EIA, NASA FIRMS) have broken IPv6 causing ETIMEDOUT.
+  // Validate every non-local outbound URL at the network boundary. This keeps
+  // callers from accidentally turning provider probes or cloud fallback into SSRF.
+  const allowPrivate = options.allowPrivate === true;
+  const requestOptions = { ...options };
+  delete requestOptions.allowPrivate;
+
   const u = new URL(url);
+  let resolvedAddress = requestOptions.resolvedAddress;
+  if (!allowPrivate) {
+    const safety = await isSafeUrl(u.toString());
+    if (!safety.safe) throw new Error(`Unsafe outbound URL: ${safety.reason}`);
+    if (!resolvedAddress) {
+      resolvedAddress = safety.resolvedAddresses?.find((addr) => /^\d+\.\d+\.\d+\.\d+$/.test(addr));
+    }
+  }
   if (u.protocol === 'https:') {
     return new Promise((resolve, reject) => {
       const reqOpts = {
         hostname: u.hostname,
         port: u.port || 443,
         path: u.pathname + u.search,
-        method: options.method || 'GET',
-        headers: options.headers || {},
+        method: requestOptions.method || 'GET',
+        headers: requestOptions.headers || {},
         family: 4,
       };
       // Pin to a pre-resolved IP to prevent TOCTOU DNS rebinding.
       // The hostname is kept for SNI / TLS certificate validation.
-      if (options.resolvedAddress) {
-        reqOpts.lookup = (_hostname, _opts, cb) => cb(null, options.resolvedAddress, 4);
+      if (resolvedAddress) {
+        reqOpts.lookup = (_hostname, _opts, cb) => cb(null, resolvedAddress, 4);
       }
       const req = https.request(reqOpts, (res) => {
         const chunks = [];
@@ -579,8 +606,8 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
       });
       req.on('error', reject);
       req.setTimeout(timeoutMs, () => { req.destroy(new Error('Request timed out')); });
-      if (options.body) {
-        const body = normalizeRequestBody(options.body);
+      if (requestOptions.body) {
+        const body = normalizeRequestBody(requestOptions.body);
         if (body != null) req.write(body);
       }
       req.end();
@@ -590,17 +617,17 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
   // For pinned addresses on plain HTTP, rewrite the URL to connect to the
   // validated IP and set the Host header so virtual-host routing still works.
   let fetchUrl = url;
-  const fetchHeaders = { ...(options.headers || {}) };
-  if (options.resolvedAddress && u.protocol === 'http:') {
+  const fetchHeaders = { ...(requestOptions.headers || {}) };
+  if (resolvedAddress && u.protocol === 'http:') {
     const pinned = new URL(url);
     fetchHeaders['Host'] = pinned.host;
-    pinned.hostname = options.resolvedAddress;
+    pinned.hostname = resolvedAddress;
     fetchUrl = pinned.toString();
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(fetchUrl, { ...options, headers: fetchHeaders, signal: controller.signal });
+    return await fetch(fetchUrl, { ...requestOptions, headers: fetchHeaders, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
@@ -826,17 +853,18 @@ async function validateSecretAgainstProvider(key, rawValue, context = {}) {
       try {
         const parsed = new URL(value);
         if (!['http:', 'https:'].includes(parsed.protocol)) return fail('Must be an http(s) URL');
+        if (!isLoopbackHost(parsed.hostname)) return fail('Ollama URL must use a loopback host');
         // Probe the OpenAI-compatible models endpoint
         probeUrl = new URL('/v1/models', value).toString();
       } catch {
         return fail('Invalid URL');
       }
-      const response = await fetchWithTimeout(probeUrl, { method: 'GET' }, 8000);
+      const response = await fetchWithTimeout(probeUrl, { method: 'GET', allowPrivate: true }, 8000);
       if (!response.ok) {
         // Fall back to native Ollama /api/tags endpoint
         try {
           const tagsUrl = new URL('/api/tags', value).toString();
-          const tagsResponse = await fetchWithTimeout(tagsUrl, { method: 'GET' }, 8000);
+          const tagsResponse = await fetchWithTimeout(tagsUrl, { method: 'GET', allowPrivate: true }, 8000);
           if (!tagsResponse.ok) return fail(`Ollama probe failed (${tagsResponse.status})`);
           return ok('Ollama endpoint verified (native API)');
         } catch {
@@ -1007,12 +1035,49 @@ async function dispatch(requestUrl, req, routes, context) {
     if (!videoId || !/^[A-Za-z0-9_-]{11}$/.test(videoId)) {
       return new Response('Invalid videoId', { status: 400, headers: { 'content-type': 'text/plain' } });
     }
-    const autoplay = requestUrl.searchParams.get('autoplay') === '0' ? '0' : '1';
-    const mute = requestUrl.searchParams.get('mute') === '0' ? '0' : '1';
-    const vq = ['small','medium','large','hd720','hd1080'].includes(requestUrl.searchParams.get('vq') || '') ? requestUrl.searchParams.get('vq') : '';
-    const origin = `http://localhost:${context.port}`;
-    const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="strict-origin-when-cross-origin"><style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden}#player{width:100%;height:100%}#play-overlay{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;pointer-events:none;background:rgba(0,0,0,0.15)}#play-overlay svg{width:72px;height:72px;opacity:0.9;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5))}#play-overlay.hidden{display:none}</style></head><body><div id="player"></div><div id="play-overlay" class="hidden"><svg viewBox="0 0 68 48"><path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55C3.97 2.33 2.27 4.81 1.48 7.74.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="red"/><path d="M45 24L27 14v20" fill="#fff"/></svg></div><script>var tag=document.createElement('script');tag.src='https://www.youtube.com/iframe_api';document.head.appendChild(tag);var player,overlay=document.getElementById('play-overlay'),started=false,muteSyncId,retryTimers=[];var obs=new MutationObserver(function(muts){for(var i=0;i<muts.length;i++){var nodes=muts[i].addedNodes;for(var j=0;j<nodes.length;j++){if(nodes[j].tagName==='IFRAME'){var a=nodes[j].getAttribute('allow')||'';if(a.indexOf('autoplay')===-1){nodes[j].setAttribute('allow','autoplay; encrypted-media; picture-in-picture '+a);console.log('[yt-embed] patched iframe allow=autoplay')}obs.disconnect();return}}}});obs.observe(document.getElementById('player'),{childList:true,subtree:true});function hideOverlay(){overlay.classList.add('hidden')}function readMuted(){if(!player)return null;if(typeof player.isMuted==='function')return player.isMuted();if(typeof player.getVolume==='function')return player.getVolume()===0;return null}function stopMuteSync(){if(muteSyncId){clearInterval(muteSyncId);muteSyncId=null}}function startMuteSync(){if(muteSyncId)return;var last=readMuted();if(last!==null)window.parent.postMessage({type:'yt-mute-state',muted:last},'*');muteSyncId=setInterval(function(){var m=readMuted();if(m!==null&&m!==last){last=m;window.parent.postMessage({type:'yt-mute-state',muted:m},'*')}},500)}function tryAutoplay(){if(!player||!player.playVideo)return;try{player.mute();player.playVideo();console.log('[yt-embed] tryAutoplay: mute+play')}catch(e){}}function onYouTubeIframeAPIReady(){player=new YT.Player('player',{videoId:'${videoId}',host:'https://www.youtube.com',playerVars:{autoplay:${autoplay},mute:${mute},playsinline:1,rel:0,controls:1,modestbranding:1,enablejsapi:1,origin:'${origin}',widget_referrer:'${origin}'},events:{onReady:function(){console.log('[yt-embed] onReady');window.parent.postMessage({type:'yt-ready'},'*');${vq ? `if(player.setPlaybackQuality)player.setPlaybackQuality('${vq}');` : ''}if(${autoplay}===1){tryAutoplay();retryTimers.push(setTimeout(function(){if(!started)tryAutoplay()},500));retryTimers.push(setTimeout(function(){if(!started)tryAutoplay()},1500));retryTimers.push(setTimeout(function(){if(!started){console.log('[yt-embed] autoplay failed after retries');window.parent.postMessage({type:'yt-autoplay-failed'},'*')}},2500))}startMuteSync()},onError:function(e){console.log('[yt-embed] error code='+e.data);stopMuteSync();window.parent.postMessage({type:'yt-error',code:e.data},'*')},onStateChange:function(e){window.parent.postMessage({type:'yt-state',state:e.data},'*');if(e.data===1||e.data===3){hideOverlay();started=true;retryTimers.forEach(clearTimeout);retryTimers=[]}}}})}setTimeout(function(){if(!started)overlay.classList.remove('hidden')},4000);window.addEventListener('message',function(e){if(!player||!player.getPlayerState)return;var m=e.data;if(!m||!m.type)return;switch(m.type){case'play':player.playVideo();break;case'pause':player.pauseVideo();break;case'mute':player.mute();break;case'unmute':player.unMute();break;case'loadVideo':if(m.videoId)player.loadVideoById(m.videoId);break;case'setQuality':if(m.quality&&player.setPlaybackQuality)player.setPlaybackQuality(m.quality);break}});window.addEventListener('beforeunload',function(){stopMuteSync();obs.disconnect();retryTimers.forEach(clearTimeout)})<\/script></body></html>`;
-    return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'permissions-policy': 'autoplay=*, encrypted-media=*', ...makeCorsHeaders(req) } });
+    const html = `<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden}#player{width:100%;height:100%}#play-overlay{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;pointer-events:none;background:rgba(0,0,0,.15)}#play-overlay svg{width:72px;height:72px;opacity:.9}#play-overlay.hidden{display:none}</style>
+</head><body>
+<div id="player"></div>
+<div id="play-overlay" class="hidden"><svg viewBox="0 0 68 48" aria-hidden="true"><path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55C3.97 2.33 2.27 4.81 1.48 7.74.06 13.05 0 24 0s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="red"/><path d="M45 24L27 14v20" fill="#fff"/></svg></div>
+<script>
+(function(){
+  'use strict';
+  var query=new URLSearchParams(location.search);
+  var videoId=query.get('videoId')||'';
+  if(!/^[A-Za-z0-9_-]{11}$/.test(videoId)){document.body.textContent='Invalid videoId';return;}
+  var autoplay=query.get('autoplay')==='0'?0:1;
+  var mute=query.get('mute')==='0'?0:1;
+  var q=query.get('vq')||'';
+  var quality=['small','medium','large','hd720','hd1080'].indexOf(q)>=0?q:'';
+  var origin=location.origin;
+  var player=null,started=false,muteSyncId=null,retryTimers=[];
+  var overlay=document.getElementById('play-overlay');
+  function post(message){window.parent.postMessage(message,'*');}
+  function hideOverlay(){overlay.classList.add('hidden');}
+  function readMuted(){if(!player)return null;if(typeof player.isMuted==='function')return player.isMuted();if(typeof player.getVolume==='function')return player.getVolume()===0;return null;}
+  function stopMuteSync(){if(muteSyncId){clearInterval(muteSyncId);muteSyncId=null;}}
+  function startMuteSync(){if(muteSyncId)return;var last=readMuted();if(last!==null)post({type:'yt-mute-state',muted:last});muteSyncId=setInterval(function(){var current=readMuted();if(current!==null&&current!==last){last=current;post({type:'yt-mute-state',muted:current});}},500);}
+  function tryAutoplay(){if(!player||typeof player.playVideo!=='function')return;try{player.mute();player.playVideo();}catch(_error){}}
+  window.onYouTubeIframeAPIReady=function(){
+    player=new YT.Player('player',{videoId:videoId,host:'https://www.youtube.com',playerVars:{autoplay:autoplay,mute:mute,playsinline:1,rel:0,controls:1,modestbranding:1,enablejsapi:1,origin:origin,widget_referrer:origin},events:{
+      onReady:function(){post({type:'yt-ready'});if(quality&&player.setPlaybackQuality)player.setPlaybackQuality(quality);if(autoplay===1){tryAutoplay();retryTimers.push(setTimeout(function(){if(!started)tryAutoplay();},500));retryTimers.push(setTimeout(function(){if(!started)tryAutoplay();},1500));retryTimers.push(setTimeout(function(){if(!started)post({type:'yt-autoplay-failed'});},2500));}startMuteSync();},
+      onError:function(event){stopMuteSync();post({type:'yt-error',code:event.data});},
+      onStateChange:function(event){post({type:'yt-state',state:event.data});if(event.data===1||event.data===3){hideOverlay();started=true;retryTimers.forEach(clearTimeout);retryTimers=[];}}
+    }});
+  };
+  var tag=document.createElement('script');tag.src='https://www.youtube.com/iframe_api';tag.referrerPolicy='strict-origin-when-cross-origin';document.head.appendChild(tag);
+  setTimeout(function(){if(!started)overlay.classList.remove('hidden');},4000);
+  window.addEventListener('message',function(event){if(event.source!==window.parent||!player||typeof player.getPlayerState!=='function')return;var message=event.data;if(!message||typeof message.type!=='string')return;switch(message.type){case'play':player.playVideo();break;case'pause':player.pauseVideo();break;case'mute':player.mute();break;case'unmute':player.unMute();break;case'loadVideo':if(typeof message.videoId==='string'&&/^[A-Za-z0-9_-]{11}$/.test(message.videoId))player.loadVideoById(message.videoId);break;case'setQuality':if(typeof message.quality==='string'&&['small','medium','large','hd720','hd1080'].indexOf(message.quality)>=0&&player.setPlaybackQuality)player.setPlaybackQuality(message.quality);break;}});
+  window.addEventListener('beforeunload',function(){stopMuteSync();retryTimers.forEach(clearTimeout);});
+})();
+</script>
+</body></html>`;
+    return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'permissions-policy': 'autoplay=*, encrypted-media=*', ...makeCorsHeaders(req) } });
   }
 
   // ── Global auth gate ────────────────────────────────────────────────────
@@ -1215,7 +1280,6 @@ async function dispatch(requestUrl, req, routes, context) {
 
     const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req);
     const hdrs = toHeaders(req.headers, { stripOrigin: true });
-    hdrs.set('Origin', `http://127.0.0.1:${context.port}`);
     const request = new Request(requestUrl.toString(), {
       method: req.method,
       headers: hdrs,

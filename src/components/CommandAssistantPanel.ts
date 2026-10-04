@@ -347,7 +347,7 @@ export class CommandAssistantPanel extends Panel {
     const streaming = this.isRunning
       ? `<article class="v-assistant-message assistant streaming"><header><strong>V // LOCAL AI</strong><span class="v-assistant-thinking">ANALYZING</span></header><div class="v-assistant-message-body">${this.draftResponse ? markdown(this.draftResponse) : '<p>Reading current workspace context…</p>'}</div></article>`
       : '';
-    container.innerHTML = messages + streaming;
+    container.innerHTML = DOMPurify.sanitize(messages + streaming);
     container.scrollTop = container.scrollHeight;
   }
 
@@ -363,10 +363,10 @@ export class CommandAssistantPanel extends Panel {
       none: 'Conversation only — no panel context',
     };
     if (this.currentSources.length === 0) {
-      strip.innerHTML = `<strong>CONTEXT MODE</strong><span>${labels[this.scope]}</span>`;
+      strip.innerHTML = DOMPurify.sanitize(`<strong>CONTEXT MODE</strong><span>${labels[this.scope]}</span>`);
       return;
     }
-    strip.innerHTML = `<strong>${this.currentSources.length} CONTEXT SOURCES</strong>${this.currentSources.slice(0, 12).map((source, index) => `<span title="${escapeHtml(source.title)}">S${index + 1} ${escapeHtml(source.title)}</span>`).join('')}`;
+    strip.innerHTML = DOMPurify.sanitize(`<strong>${this.currentSources.length} CONTEXT SOURCES</strong>${this.currentSources.slice(0, 12).map((source, index) => `<span title="${escapeHtml(source.title)}">S${index + 1} ${escapeHtml(source.title)}</span>`).join('')}`);
   }
 
   private setRunning(running: boolean): void {

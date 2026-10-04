@@ -152,14 +152,16 @@ function extractTag(xml: string, tag: string): string {
 }
 
 function decodeXmlEntities(s: string): string {
+  // Decode ampersand last so "&amp;lt;" becomes "&lt;" rather than "<".
+  // That guarantees one decoding pass and prevents double-unescaping.
   return s
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)));
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&amp;/g, '&');
 }
 
 function toProtoItem(item: ParsedItem): ProtoNewsItem {

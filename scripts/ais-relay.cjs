@@ -178,11 +178,26 @@ const requestRateBuckets = new Map(); // key: route:ip -> { count, resetAt }
 const logThrottleState = new Map(); // key: event key -> timestamp
 
 // Safe response: guard against "headers already sent" crashes
+function escapeHtmlText(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[char]);
+}
+
 function safeEnd(res, statusCode, headers, body) {
   if (res.headersSent || res.writableEnded) return false;
   try {
-    res.writeHead(statusCode, headers);
-    res.end(body);
+    const safeHeaders = { ...headers, 'X-Content-Type-Options': 'nosniff' };
+    const contentTypeKey = Object.keys(safeHeaders).find((key) => key.toLowerCase() === 'content-type');
+    const contentType = String(contentTypeKey ? safeHeaders[contentTypeKey] : '').toLowerCase();
+    const safeBody = contentType.includes('text/html') ? escapeHtmlText(body) : body;
+    if (!contentTypeKey) safeHeaders['Content-Type'] = 'application/octet-stream';
+    res.writeHead(statusCode, safeHeaders);
+    res.end(safeBody);
     return true;
   } catch {
     return false;
@@ -2177,15 +2192,21 @@ function handleWorldBankRequest(req, res) {
     }, body);
   }
 
-  const indicator = wbParams.get('indicator');
+  const indicator = String(wbParams.get('indicator') || '').trim().toUpperCase();
   if (!indicator) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'Missing indicator parameter' }));
   }
+  // World Bank indicator identifiers are dot-separated alphanumeric tokens.
+  // Reject path/query metacharacters before the value reaches the upstream URL.
+  if (!/^[A-Z0-9.]{2,64}$/.test(indicator)) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'Invalid indicator parameter' }));
+  }
 
   const country = wbParams.get('country');
   const countries = wbParams.get('countries');
-  const years = parseInt(wbParams.get('years') || '5', 10);
+  const years = Math.max(1, Math.min(25, parseInt(wbParams.get('years') || '5', 10) || 5));
   let countryList = country || (countries ? countries.split(',').join(';') : [
     'USA','CHN','JPN','DEU','KOR','GBR','IND','ISR','SGP','TWN',
     'FRA','CAN','SWE','NLD','CHE','FIN','IRL','AUS','BRA','IDN',
@@ -2193,6 +2214,13 @@ function handleWorldBankRequest(req, res) {
     'ESP','ITA','POL','CZE','DNK','NOR','AUT','BEL','PRT','EST',
     'MEX','ARG','CHL','COL','ZAF','NGA','KEN',
   ].join(';'));
+
+  const countryCodes = String(countryList).split(';').map((code) => code.trim().toUpperCase()).filter(Boolean);
+  if (!countryCodes.length || countryCodes.length > 64 || countryCodes.some((code) => !/^[A-Z]{2,3}$/.test(code))) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'Invalid country parameter' }));
+  }
+  countryList = countryCodes.join(';');
 
   const currentYear = new Date().getFullYear();
   const startYear = currentYear - years;
@@ -2215,7 +2243,10 @@ function handleWorldBankRequest(req, res) {
     'NE.EXP.GNFS.ZS': 'Exports of Goods & Services (% of GDP)',
   };
 
-  const wbUrl = `https://api.worldbank.org/v2/country/${countryList}/indicator/${encodeURIComponent(indicator)}?format=json&date=${startYear}:${currentYear}&per_page=1000`;
+  const wbUrl = new URL(`/v2/country/${countryList}/indicator/${indicator}`, 'https://api.worldbank.org');
+  wbUrl.searchParams.set('format', 'json');
+  wbUrl.searchParams.set('date', `${startYear}:${currentYear}`);
+  wbUrl.searchParams.set('per_page', '1000');
 
   console.log('[Relay] World Bank request (MISS):', indicator);
 
@@ -2368,7 +2399,8 @@ function fetchPolymarketUpstream(cacheKey, endpoint, params, tag) {
       polymarketCache.set(cacheKey, { data: '[]', timestamp: Date.now() - POLYMARKET_CACHE_TTL_MS + POLYMARKET_NEG_TTL_MS });
       return null;
     }
-    const gammaUrl = `https://gamma-api.polymarket.com/${endpoint}?${params}`;
+    const gammaUrl = new URL(`/${endpoint}`, 'https://gamma-api.polymarket.com');
+    gammaUrl.search = params.toString();
     console.log('[Relay] Polymarket request (MISS):', endpoint, tag || '');
 
     return new Promise((resolve) => {
@@ -2432,6 +2464,11 @@ function handlePolymarketRequest(req, res) {
   // Cache key excludes limit — always fetch upstream with limit=50, slice on serve.
   // This prevents cache fragmentation from different callers (limit=20 vs limit=30).
   const endpoint = url.searchParams.get('endpoint') || 'markets';
+  const allowedEndpoints = new Set(['markets', 'events']);
+  if (!allowedEndpoints.has(endpoint)) {
+    return safeEnd(res, 400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      JSON.stringify({ error: 'Invalid Polymarket endpoint' }));
+  }
   const requestedLimit = Math.max(1, Math.min(100, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
   const upstreamLimit = 50; // canonical upstream limit for cache sharing
   const params = new URLSearchParams();
@@ -3116,17 +3153,32 @@ const server = http.createServer(async (req, res) => {
         'islandtimes.org',
         'www.atlanticcouncil.org',
       ];
-      const parsed = new URL(feedUrl);
-      // Block deprecated/stale feed domains — stale clients still request these
       const blockedDomains = ['rsshub.app'];
-      if (blockedDomains.includes(parsed.hostname)) {
-        res.writeHead(410, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'Feed deprecated' }));
+      const parseAllowedRssUrl = (raw, base) => {
+        let candidate;
+        try {
+          candidate = base ? new URL(raw, base) : new URL(raw);
+        } catch {
+          return { ok: false, status: 400, error: 'Invalid feed URL' };
+        }
+        if (!['http:', 'https:'].includes(candidate.protocol) || candidate.username || candidate.password) {
+          return { ok: false, status: 403, error: 'Feed URL protocol or credentials not allowed' };
+        }
+        if (blockedDomains.includes(candidate.hostname)) {
+          return { ok: false, status: 410, error: 'Feed deprecated' };
+        }
+        if (!allowedDomains.includes(candidate.hostname)) {
+          return { ok: false, status: 403, error: 'Domain not allowed on Railway proxy' };
+        }
+        return { ok: true, url: candidate };
+      };
+
+      const initialFeed = parseAllowedRssUrl(feedUrl);
+      if (!initialFeed.ok) {
+        res.writeHead(initialFeed.status, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: initialFeed.error }));
       }
-      if (!allowedDomains.includes(parsed.hostname)) {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'Domain not allowed on Railway proxy' }));
-      }
+      feedUrl = initialFeed.url.toString();
 
       // Serve from cache if fresh (5 min for success, 1 min for failures)
       const rssCached = rssResponseCache.get(feedUrl);
@@ -3186,12 +3238,18 @@ const server = http.createServer(async (req, res) => {
           return sendError(502, 'Too many redirects');
         }
 
+        const checked = parseAllowedRssUrl(url);
+        if (!checked.ok) {
+          return sendError(403, 'Redirect target not allowed');
+        }
+        const upstreamUrl = checked.url;
+
         const conditionalHeaders = {};
         if (rssCached?.etag) conditionalHeaders['If-None-Match'] = rssCached.etag;
         if (rssCached?.lastModified) conditionalHeaders['If-Modified-Since'] = rssCached.lastModified;
 
-        const protocol = url.startsWith('https') ? https : http;
-        const request = protocol.get(url, {
+        const protocol = upstreamUrl.protocol === 'https:' ? https : http;
+        const request = protocol.get(upstreamUrl, {
           headers: {
             'Accept': 'application/rss+xml, application/xml, text/xml, */*',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -3201,9 +3259,12 @@ const server = http.createServer(async (req, res) => {
           timeout: 15000
         }, (response) => {
           if ([301, 302, 303, 307, 308].includes(response.statusCode) && response.headers.location) {
-            const redirectUrl = response.headers.location.startsWith('http')
-              ? response.headers.location
-              : new URL(response.headers.location, url).href;
+            const redirect = parseAllowedRssUrl(response.headers.location, upstreamUrl);
+            if (!redirect.ok) {
+              response.resume();
+              return sendError(502, 'Upstream redirect target is not allowlisted');
+            }
+            const redirectUrl = redirect.url.toString();
             logThrottled('log', `rss-redirect:${feedUrl}:${redirectUrl}`, `[Relay] Following redirect to: ${redirectUrl}`);
             return fetchWithRedirects(redirectUrl, redirectCount + 1);
           }

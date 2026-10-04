@@ -1,3 +1,4 @@
+import { stripMarkupText } from './_markup-text.mjs';
 // Pure helpers extracted from seed-disease-outbreaks.mjs so tests can import
 // them without triggering the seeder's top-level runSeed() call (which would
 // exit the process on import).
@@ -143,8 +144,7 @@ export function whoNormalizeItem(item, nowMs = Date.now()) {
  * single pass via the shared decoder (#5436): `&amp;lt;` stays `&lt;`.
  */
 export function cleanRssDescription(rawDesc) {
-  return decodeHtmlEntities(rawDesc || '')
-    .replace(/<[^>]+>/g, '').trim().slice(0, 300);
+  return stripMarkupText(decodeHtmlEntities(rawDesc || '')).trim().slice(0, 300);
 }
 
 /**

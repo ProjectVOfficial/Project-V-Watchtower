@@ -269,7 +269,7 @@ function renderMessages(): void {
     </article>`).join('');
   const streaming = running ? `<article class="pv-assistant-window-message assistant streaming"><header><strong>V // LOCAL AI</strong><em>ANALYZING</em></header><div>${draftResponse ? markdown(draftResponse) : '<p>Refreshing and collecting Watchtower context…</p>'}</div></article>` : '';
   const wasNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
-  container.innerHTML = messages + streaming;
+  container.innerHTML = DOMPurify.sanitize(messages + streaming);
   if (running || wasNearBottom) requestAnimationFrame(() => scrollMessagesToLatest(false));
   else requestAnimationFrame(updateLatestButton);
 }
@@ -281,7 +281,7 @@ function renderContext(): void {
     list.innerHTML = '<strong>CONTEXT SOURCES</strong><p>Sources used for the next answer will appear here.</p>';
     return;
   }
-  list.innerHTML = `<strong>${currentSources.length} CONTEXT SOURCES</strong>${currentSources.slice(0, 20).map((source, index) => `<span title="${escapeHtml(source.title)}">S${index + 1} · ${escapeHtml(source.title)}</span>`).join('')}`;
+  list.innerHTML = DOMPurify.sanitize(`<strong>${currentSources.length} CONTEXT SOURCES</strong>${currentSources.slice(0, 20).map((source, index) => `<span title="${escapeHtml(source.title)}">S${index + 1} · ${escapeHtml(source.title)}</span>`).join('')}`);
 }
 
 function appendNotice(message: string): void {

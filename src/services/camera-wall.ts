@@ -115,7 +115,7 @@ function validRegion(value: unknown): value is CameraStreamRegion {
 
 function cleanYouTubeId(value: string): string {
   const candidate = value.trim();
-  return /^[A-Za-z0-9_-]{6,32}$/.test(candidate) ? candidate : '';
+  return /^[A-Za-z0-9_-]{11}$/.test(candidate) ? candidate : '';
 }
 
 export function normalizeCameraSource(type: CameraStreamType, rawSource: string): string {
@@ -141,7 +141,9 @@ export function normalizeCameraSource(type: CameraStreamType, rawSource: string)
   }
   try {
     const url = new URL(source);
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+    if (url.username || url.password) return '';
+    const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
+    if (url.protocol !== 'https:' && !(loopback && url.protocol === 'http:')) return '';
     return url.href;
   } catch {
     return '';

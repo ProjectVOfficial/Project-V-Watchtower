@@ -31,12 +31,11 @@ function escapeTooltipText(value: string): string {
     .replace(/'/g, '&#039;');
 }
 
-function safeScript(value: string): string {
-  return value.replace(/<\/script/gi, '<\\/script');
-}
-
-function safeStyle(value: string): string {
-  return value.replace(/<\/style/gi, '<\\/style');
+function toDataUrl(mimeType: string, value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return `data:${mimeType};base64,${btoa(binary)}`;
 }
 
 function networkSources(manifest: ProjectVPluginManifest, permissions: Set<ProjectVPluginPermission>): string {
@@ -139,18 +138,18 @@ export class PluginPanel extends Panel {
       "base-uri 'none'",
       "form-action 'none'",
       "frame-ancestors 'none'",
-      "script-src 'unsafe-inline'",
-      "style-src 'unsafe-inline'",
+      "script-src data:",
+      "style-src 'unsafe-inline' data:",
       `connect-src ${network}`,
       `img-src data: blob: ${network}`,
       `media-src ${network}`,
       "font-src data:",
     ].join('; ');
-    const bridge = safeScript(this.bridgeScript());
-    const userScript = safeScript(this.manifest.entry.script ?? '');
-    const styles = safeStyle(this.manifest.entry.css ?? '');
+    const bridgeUrl = toDataUrl('text/javascript;charset=utf-8', this.bridgeScript());
+    const userScriptUrl = toDataUrl('text/javascript;charset=utf-8', this.manifest.entry.script ?? '');
+    const styleUrl = toDataUrl('text/css;charset=utf-8', this.manifest.entry.css ?? '');
     return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${csp}"><style>html,body{width:100%;min-height:100%;margin:0}${styles}</style><script>${bridge}</script></head><body>${this.manifest.entry.html}<script>${userScript}</script></body></html>`;
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${csp}"><style>html,body{width:100%;min-height:100%;margin:0}</style><link rel="stylesheet" href="${styleUrl}"><script src="${bridgeUrl}"></script></head><body>${this.manifest.entry.html}<script src="${userScriptUrl}"></script></body></html>`;
   }
 
   private bridgeScript(): string {

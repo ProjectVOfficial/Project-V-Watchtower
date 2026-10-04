@@ -32,7 +32,7 @@ if (!rawTrustedProxies) {
   const invalidProxy = trustedProxies.find((value) => !value || !validateTrustedProxy(value));
 
   if (invalidProxy !== undefined) {
-    console.error(`Invalid IP or CIDR in WM_TRUSTED_PROXY_CIDRS: ${JSON.stringify(invalidProxy)}`);
+    console.error('WM_TRUSTED_PROXY_CIDRS contains an invalid IP or CIDR entry.');
     process.exit(1);
   }
 

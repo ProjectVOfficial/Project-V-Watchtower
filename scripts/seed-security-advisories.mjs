@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { stripMarkupText } from './_markup-text.mjs';
 
 import { loadEnvFile, loadSharedConfig, CHROME_UA, runSeed } from './_seed-utils.mjs';
 import { decodeHtmlEntities } from './_html-entities.mjs';
@@ -110,9 +111,7 @@ function isValidUrl(link) {
 }
 
 function stripHtml(html) {
-  const stripped = html.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-    .replace(/<[^>]+>/g, '');
-  return decodeHtmlEntities(stripped).replace(/\s+/g, ' ').trim();
+  return decodeHtmlEntities(stripMarkupText(html)).replace(/\s+/g, ' ').trim();
 }
 
 export function parseRssItems(xml) {

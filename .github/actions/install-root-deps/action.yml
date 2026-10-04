@@ -22,4 +22,9 @@ runs:
     - name: Regenerate inventory on cache hit
       if: steps.node-modules.outputs.cache-hit == 'true'
       shell: bash
-      run: npm run inventory:facts
+      run: |
+        if node -e "process.exit(require('./package.json').scripts?.['inventory:facts'] ? 0 : 1)"; then
+          npm run inventory:facts
+        else
+          echo "::notice::inventory:facts is not defined in this Project V fork; dependency restore is still valid."
+        fi

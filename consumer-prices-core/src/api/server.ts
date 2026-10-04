@@ -34,6 +34,32 @@ function isAuthorizedApiKey(provided: string | string[] | undefined, apiKey: Buf
   return candidates.some((candidate) => matchesApiKey(candidate, apiKey));
 }
 
+type RateBucket = { count: number; resetAt: number };
+const rateBuckets = new Map<string, RateBucket>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 120;
+const HEALTH_RATE_LIMIT_MAX = 60;
+const RATE_BUCKET_CAP = 10_000;
+
+function consumeRequestBudget(key: string, max: number, now = Date.now()): { allowed: boolean; retryAfterSeconds: number } {
+  let bucket = rateBuckets.get(key);
+  if (!bucket || now >= bucket.resetAt) {
+    bucket = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    rateBuckets.set(key, bucket);
+  }
+  bucket.count += 1;
+  if (rateBuckets.size > RATE_BUCKET_CAP) {
+    for (const [candidate, value] of rateBuckets) {
+      if (now >= value.resetAt) rateBuckets.delete(candidate);
+      if (rateBuckets.size <= RATE_BUCKET_CAP) break;
+    }
+  }
+  return {
+    allowed: bucket.count <= max,
+    retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
+  };
+}
+
 export function createServer(options: ConsumerPricesServerOptions = {}) {
   const apiKey = Buffer.from(requiredApiKey(options.apiKey));
   const server = Fastify({ logger: options.logger ?? { level: process.env.LOG_LEVEL ?? 'info' } });
@@ -44,7 +70,15 @@ export function createServer(options: ConsumerPricesServerOptions = {}) {
   });
 
   server.addHook('onRequest', async (request, reply) => {
-    if (isHealthCheckPath(request.url)) return;
+    const healthCheck = isHealthCheckPath(request.url);
+    const budget = consumeRequestBudget(`${healthCheck ? 'health' : 'api'}:${request.ip}`, healthCheck ? HEALTH_RATE_LIMIT_MAX : RATE_LIMIT_MAX);
+    if (!budget.allowed) {
+      return reply
+        .header('Retry-After', String(budget.retryAfterSeconds))
+        .status(429)
+        .send({ error: 'rate limit exceeded' });
+    }
+    if (healthCheck) return;
 
     const provided = request.headers['x-api-key'];
     if (!isAuthorizedApiKey(provided, apiKey)) {

@@ -1,3 +1,5 @@
+import DOMPurify from 'dompurify';
+
 /** Anything that can appear as a child of h() / fragment(). */
 export type DomChild = Node | string | number | null | undefined | false;
 
@@ -56,10 +58,9 @@ export function replaceChildren(el: Element, ...children: DomChild[]): void {
 
 export function rawHtml(html: string): DocumentFragment {
   const tpl = document.createElement('template');
-  tpl.innerHTML = html;
+  tpl.innerHTML = DOMPurify.sanitize(html);
   return tpl.content;
 }
-
 const SAFE_TAGS = new Set([
   'strong', 'em', 'b', 'i', 'br', 'p', 'ul', 'ol', 'li', 'span', 'div', 'a',
 ]);
@@ -68,36 +69,11 @@ const SAFE_ATTRS = new Set(['style', 'class', 'href', 'target', 'rel']);
 /** Like rawHtml() but strips tags and attributes not in the allowlist. */
 export function safeHtml(html: string): DocumentFragment {
   const tpl = document.createElement('template');
-  tpl.innerHTML = html;
-  const walk = (parent: Element | DocumentFragment) => {
-    const children = Array.from(parent.childNodes);
-    for (const node of children) {
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const el = node as Element;
-        if (!SAFE_TAGS.has(el.tagName.toLowerCase())) {
-          // Unwrap: keep children, remove the element itself
-          while (el.firstChild) parent.insertBefore(el.firstChild, el);
-          parent.removeChild(el);
-          continue;
-        }
-        // Strip unsafe attributes
-        for (const attr of Array.from(el.attributes)) {
-          if (!SAFE_ATTRS.has(attr.name.toLowerCase())) {
-            el.removeAttribute(attr.name);
-          }
-        }
-        // Sanitize href to prevent javascript: URIs
-        if (el.hasAttribute('href')) {
-          const href = el.getAttribute('href') || '';
-          if (!/^https?:\/\//i.test(href) && !href.startsWith('/') && !href.startsWith('#')) {
-            el.removeAttribute('href');
-          }
-        }
-        walk(el);
-      }
-    }
-  };
-  walk(tpl.content);
+  tpl.innerHTML = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [...SAFE_TAGS],
+    ALLOWED_ATTR: [...SAFE_ATTRS],
+    ALLOW_DATA_ATTR: false,
+  });
   return tpl.content;
 }
 

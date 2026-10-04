@@ -466,12 +466,18 @@ function parseWorktrees(raw) {
   return records;
 }
 
+function normalizeIssueNumber(issue) {
+  const value = String(issue ?? '').trim();
+  return /^\d{1,10}$/.test(value) ? value : '';
+}
+
 export function findWorktreeCollisions(worktrees, {
   currentRoot,
   issue = '',
   watchedBranches = [],
 } = {}) {
-  const issuePattern = issue ? new RegExp(`(?:^|[^0-9])${issue}(?:[^0-9]|$)`) : null;
+  const issueNumber = normalizeIssueNumber(issue);
+  const issuePattern = issueNumber ? new RegExp(`(?:^|[^0-9])${issueNumber}(?:[^0-9]|$)`) : null;
   const watched = new Set(watchedBranches.filter(Boolean));
   return worktrees.filter(worktree => {
     if (resolve(worktree.path) === resolve(currentRoot) || worktree.prunable) return false;
@@ -482,7 +488,8 @@ export function findWorktreeCollisions(worktrees, {
 }
 
 function duplicatePrState({ currentPr, ghBin, issue, repo, rootDir, runner }) {
-  if (!issue) return { checked: false, duplicates: [], ok: true, reason: 'no issue number supplied' };
+  const issueNumber = normalizeIssueNumber(issue);
+  if (!issueNumber) return { checked: false, duplicates: [], ok: true, reason: 'no valid issue number supplied' };
   const result = runCommand(
     runner,
     ghBin,
@@ -509,8 +516,8 @@ function duplicatePrState({ currentPr, ghBin, issue, repo, rootDir, runner }) {
       ok: false,
     };
   }
-  const issuePattern = new RegExp(`(?:#|issues/|issue[-_/ ]?)${issue}(?:[^0-9]|$)`, 'i');
-  const branchPattern = new RegExp(`(?:^|[-_/])${issue}(?:[-_/]|$)`);
+  const issuePattern = new RegExp(`(?:#|issues/|issue[-_/ ]?)${issueNumber}(?:[^0-9]|$)`, 'i');
+  const branchPattern = new RegExp(`(?:^|[-_/])${issueNumber}(?:[-_/]|$)`);
   const matches = prs.filter(pr => (
     issuePattern.test(`${pr.title || ''}\n${pr.body || ''}`)
     || branchPattern.test(pr.headRefName || '')

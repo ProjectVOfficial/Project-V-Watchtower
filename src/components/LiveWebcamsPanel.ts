@@ -216,16 +216,27 @@ export class LiveWebcamsPanel extends Panel {
   }
 
   private buildEmbedUrl(videoId: string): string {
+    if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return 'about:blank';
     const quality = getStreamQuality();
     if (isDesktopRuntime()) {
-      // Use local sidecar embed — YouTube rejects tauri:// parent origin with error 153.
-      // The sidecar serves the embed from http://127.0.0.1:PORT which YouTube accepts.
-      const params = new URLSearchParams({ videoId, autoplay: '1', mute: '1' });
-      if (quality !== 'auto') params.set('vq', quality);
-      return `http://localhost:${getLocalApiPort()}/api/youtube-embed?${params.toString()}`;
+      const port = Number(getLocalApiPort());
+      if (!Number.isInteger(port) || port < 1 || port > 65535) return 'about:blank';
+      const url = new URL('/api/youtube-embed', `http://127.0.0.1:${port}`);
+      url.searchParams.set('videoId', videoId);
+      url.searchParams.set('autoplay', '1');
+      url.searchParams.set('mute', '1');
+      if (quality !== 'auto') url.searchParams.set('vq', quality);
+      return url.href;
     }
-    const vq = quality !== 'auto' ? `&vq=${quality}` : '';
-    return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=0&modestbranding=1&playsinline=1&rel=0${vq}`;
+    const url = new URL(`/embed/${videoId}`, 'https://www.youtube-nocookie.com');
+    url.searchParams.set('autoplay', '1');
+    url.searchParams.set('mute', '1');
+    url.searchParams.set('controls', '0');
+    url.searchParams.set('modestbranding', '1');
+    url.searchParams.set('playsinline', '1');
+    url.searchParams.set('rel', '0');
+    if (quality !== 'auto') url.searchParams.set('vq', quality);
+    return url.href;
   }
 
   private createIframe(feed: WebcamFeed): HTMLIFrameElement {
@@ -235,10 +246,10 @@ export class LiveWebcamsPanel extends Panel {
     iframe.title = `${feed.city} live webcam`;
     iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
     iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
     if (!isDesktopRuntime()) {
       iframe.allowFullscreen = true;
       iframe.setAttribute('loading', 'lazy');
-      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
     }
     return iframe;
   }

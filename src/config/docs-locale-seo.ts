@@ -14,6 +14,7 @@
 
 import { CANONICAL_ORIGIN, ORGANIZATION_ID, PERSON_ID, WEBSITE_ID } from './schema-graph-ids';
 import { DOCS_PAGE_DATES } from './docs-page-dates.generated';
+import { getHtmlTagAttribute, rewriteHtmlScriptBlocks } from './html-script-blocks';
 
 export const DOCS_PUBLIC_ORIGIN = 'https://www.worldmonitor.app';
 export const DOCS_ZH_HREFLANG = 'zh-Hans';
@@ -125,34 +126,111 @@ function replaceOgLocale(html: string, locale: string): string {
   return html;
 }
 
+function findMarkupTagEnd(html: string, start: number): number {
+  let quote = '';
+  for (let index = start; index < html.length; index += 1) {
+    const char = html[index]!;
+    if (quote) {
+      if (char === quote) quote = '';
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '>') {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function tagIdentity(tag: string): { name: string; closing: boolean } {
+  let index = 1;
+  let closing = false;
+  if (tag[index] === '/') { closing = true; index += 1; }
+  while (tag[index] === ' ' || tag[index] === '\t' || tag[index] === '\n' || tag[index] === '\r' || tag[index] === '\f') index += 1;
+  const start = index;
+  while (index < tag.length) {
+    const char = tag[index]!;
+    if (!(char >= 'A' && char <= 'Z') && !(char >= 'a' && char <= 'z') && !(char >= '0' && char <= '9') && char !== '-') break;
+    index += 1;
+  }
+  return { name: tag.slice(start, index).toLowerCase(), closing };
+}
+
 function rewriteDocsHeadLinks(html: string, pathname: string): string {
   const href = docsAbsoluteUrl(pathname).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   const canonical = `<link rel="canonical" href="${href}" />`;
   const alternates = buildDocsHreflangLinkTags(pathname).join('');
+  const lower = html.toLowerCase();
+  let output = '';
+  let cursor = 0;
   let inHead = false;
   let replaced = false;
   let inserted = false;
-  const rewritten = html.replace(
-    /<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1(?:[\t\n\f\r ][^>]*|\/[^>]*)?>|<(?:head|\/head|link)\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi,
-    (tag) => {
-      if (/^<head[\t\n\f\r >]/i.test(tag)) inHead = true;
-      if (/^<\/head[\t\n\f\r >]/i.test(tag) && inHead) {
+
+  while (cursor < html.length) {
+    const open = html.indexOf('<', cursor);
+    if (open === -1) { output += html.slice(cursor); break; }
+    output += html.slice(cursor, open);
+
+    if (html.startsWith('<!--', open)) {
+      const commentEnd = html.indexOf('-->', open + 4);
+      if (commentEnd === -1) { output += html.slice(open); break; }
+      output += html.slice(open, commentEnd + 3);
+      cursor = commentEnd + 3;
+      continue;
+    }
+
+    const tagEnd = findMarkupTagEnd(html, open + 1);
+    if (tagEnd === -1) { output += html.slice(open); break; }
+    const tag = html.slice(open, tagEnd + 1);
+    const identity = tagIdentity(tag);
+
+    if (!identity.closing && (identity.name === 'script' || identity.name === 'style')) {
+      const closeStart = lower.indexOf(`</${identity.name}`, tagEnd + 1);
+      if (closeStart !== -1) {
+        const closeEnd = findMarkupTagEnd(html, closeStart + identity.name.length + 2);
+        if (closeEnd !== -1) {
+          output += html.slice(open, closeEnd + 1);
+          cursor = closeEnd + 1;
+          continue;
+        }
+      }
+    }
+
+    if (identity.name === 'head') {
+      if (!identity.closing) {
+        inHead = true;
+        output += tag;
+      } else if (inHead) {
+        output += `${replaced ? '' : canonical}${alternates}${tag}`;
         inHead = false;
         inserted = true;
-        return `${replaced ? '' : canonical}${alternates}${tag}`;
+      } else {
+        output += tag;
       }
-      if (!inHead || !/^<link\b/i.test(tag)) return tag;
-      const attributes = [...tag.matchAll(/\s+([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)];
-      const rel = attributes.find((attribute) => attribute[1]?.toLowerCase() === 'rel');
-      const relations = (rel?.[2] ?? rel?.[3] ?? rel?.[4] ?? '').toLowerCase().split(/\s+/);
-      if (relations.includes('alternate') && attributes.some((attribute) => attribute[1]?.toLowerCase() === 'hreflang')) return '';
-      if (!relations.includes('canonical')) return tag;
-      if (replaced) return '';
-      replaced = true;
-      return canonical;
-    },
-  );
-  return inserted ? rewritten : `${rewritten}${alternates}`;
+      cursor = tagEnd + 1;
+      continue;
+    }
+
+    if (inHead && !identity.closing && identity.name === 'link') {
+      const rel = (getHtmlTagAttribute(tag, 'rel') ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+      const hasHreflang = getHtmlTagAttribute(tag, 'hreflang') !== null;
+      if (rel.includes('alternate') && hasHreflang) {
+        cursor = tagEnd + 1;
+        continue;
+      }
+      if (rel.includes('canonical')) {
+        if (!replaced) output += canonical;
+        replaced = true;
+        cursor = tagEnd + 1;
+        continue;
+      }
+    }
+
+    output += tag;
+    cursor = tagEnd + 1;
+  }
+
+  return inserted ? output : `${output}${alternates}`;
 }
 
 const CANONICAL_WEBSITE_ID = WEBSITE_ID;
@@ -162,8 +240,6 @@ const DOCS_WEBSITE_IDS = new Set([
   `${DOCS_PUBLIC_ORIGIN}/docs#website`,
   `${DOCS_PUBLIC_ORIGIN}/docs/#website`,
 ]);
-const JSON_LD_SCRIPT_RE =
-  /<script\b(?=[^>]*\btype\s*=\s*["']application\/ld\+json["'])[^>]*>([\s\S]*?)<\/script(?:[\t\n\f\r ][^>]*|\/[^>]*)?>/gi;
 
 /** `@type` may be a string or an array of strings in valid JSON-LD. */
 function hasJsonLdType(node: Record<string, unknown>, type: string): boolean {
@@ -306,14 +382,20 @@ function hasDocsArticle(value: unknown): boolean {
 }
 
 function documentHasDocsArticle(html: string): boolean {
-  for (const match of html.matchAll(JSON_LD_SCRIPT_RE)) {
+  let found = false;
+  rewriteHtmlScriptBlocks(html, (block) => {
+    const original = `${block.openTag}${block.body}${block.closeTag}`;
+    if (found || getHtmlTagAttribute(block.openTag, 'type')?.trim().toLowerCase() !== 'application/ld+json') {
+      return original;
+    }
     try {
-      if (hasDocsArticle(JSON.parse(match[1] ?? ''))) return true;
+      found = hasDocsArticle(JSON.parse(block.body));
     } catch {
       // The main rewrite logs parse failures and leaves those blocks untouched.
     }
-  }
-  return false;
+    return original;
+  });
+  return found;
 }
 
 function docsSlugForPathname(pathname: string | undefined): string | null {
@@ -512,21 +594,16 @@ function withDocsArticleAuthor(value: unknown, pathname?: string): unknown {
  */
 export function rewriteDocsEntityGraph(html: string, pathname?: string): string {
   let articlePresent = documentHasDocsArticle(html);
-  return html.replace(JSON_LD_SCRIPT_RE, (script, body: string) => {
+  return rewriteHtmlScriptBlocks(html, (block) => {
+    const script = `${block.openTag}${block.body}${block.closeTag}`;
+    if (getHtmlTagAttribute(block.openTag, 'type')?.trim().toLowerCase() !== 'application/ld+json') return script;
     try {
-      const next = rewriteDocsJsonLdValue(JSON.parse(body), pathname, !articlePresent);
+      const next = rewriteDocsJsonLdValue(JSON.parse(block.body), pathname, !articlePresent);
       if (next === null) return '';
       articlePresent ||= hasDocsArticle(next);
-      // Escape `<` so a `</script>` inside any string value cannot close the
-      // element early. JSON.parse turns Mintlify's escaped `<\/script>` back
-      // into a literal, and JSON.stringify would re-emit it raw. Mirrors
-      // escapeJsonScript in scripts/build-crawlable-corpus.mjs.
       const serialized = JSON.stringify(next).replace(/</g, '\\u003c');
       return `<script type="application/ld+json">${serialized}</script>`;
     } catch (err) {
-      // Fail open so a shape we cannot parse still reaches the reader, but say
-      // so: without this the vendor WebSite silently ships behind a 200 and the
-      // response headers look identical to a successful rewrite.
       console.error('[docs-locale-seo] JSON-LD rewrite failed; shipping upstream block', {
         pathname,
         error: err instanceof Error ? err.message : String(err),

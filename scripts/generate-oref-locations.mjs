@@ -47,9 +47,7 @@ async function main() {
   ];
 
   for (const [heb, eng] of sorted) {
-    const escapedKey = heb.replace(/'/g, "\\'");
-    const escapedVal = eng.replace(/'/g, "\\'");
-    lines.push(`  '${escapedKey}': '${escapedVal}',`);
+    lines.push(`  ${JSON.stringify(heb)}: ${JSON.stringify(eng)},`);
   }
 
   lines.push('};');
