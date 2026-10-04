@@ -71,6 +71,7 @@ export interface RuntimeConfig {
 
 const TOGGLES_STORAGE_KEY = 'worldmonitor-runtime-feature-toggles';
 const LOCAL_SECRETS_STORAGE_KEY = 'project-v-local-runtime-secrets-v1';
+const volatileLocalSecrets: Partial<Record<RuntimeSecretKey, string>> = {};
 
 export function isLocalRuntimeConfigEnabled(): boolean {
   if (isDesktopRuntime() || typeof location === 'undefined') return false;
@@ -258,27 +259,15 @@ function readEnvSecret(key: RuntimeSecretKey): string {
 
 function readLocalSecrets(): Partial<Record<RuntimeSecretKey, string>> {
   if (!isLocalRuntimeConfigEnabled()) return {};
-  try {
-    const stored = localStorage.getItem(LOCAL_SECRETS_STORAGE_KEY);
-    if (!stored) return {};
-    const parsed = JSON.parse(stored) as Partial<Record<RuntimeSecretKey, unknown>>;
-    const result: Partial<Record<RuntimeSecretKey, string>> = {};
-    for (const [key, value] of Object.entries(parsed)) {
-      if (typeof value === 'string' && value.trim()) {
-        result[key as RuntimeSecretKey] = value.trim();
-      }
-    }
-    return result;
-  } catch {
-    return {};
-  }
+  // API keys are intentionally memory-only. Purge any value left by older builds.
+  try { localStorage.removeItem(LOCAL_SECRETS_STORAGE_KEY); } catch { /* storage may be unavailable */ }
+  return { ...volatileLocalSecrets };
 }
 
 function writeLocalSecret(key: RuntimeSecretKey, value: string): void {
-  const secrets = readLocalSecrets();
-  if (value) secrets[key] = value;
-  else delete secrets[key];
-  localStorage.setItem(LOCAL_SECRETS_STORAGE_KEY, JSON.stringify(secrets));
+  if (value) volatileLocalSecrets[key] = value;
+  else delete volatileLocalSecrets[key];
+  try { localStorage.removeItem(LOCAL_SECRETS_STORAGE_KEY); } catch { /* storage may be unavailable */ }
 }
 
 function readStoredToggles(): Record<RuntimeFeatureId, boolean> {
