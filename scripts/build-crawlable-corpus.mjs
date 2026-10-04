@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { removeMarkupBlocks, stripMarkupText } from './_markup-text.mjs';
 // Build a deterministic, static HTML corpus for crawlable pages that should
 // live outside the SPA catch-all. Inputs are committed repo data only: no
 // network calls, no env files, and no live secrets.
@@ -1658,15 +1659,13 @@ function addCountryContext(countries, regionsByCode, crises) {
 }
 
 function stripMarkdownInline(value) {
-  return String(value || '')
+  const markdownText = String(value || '')
     .replace(/<((?:https?:\/\/|mailto:)[^<>\s]+|[^<>\s@]+@[^<>\s@]+)>/gi, '$1')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/`([^`]+)`/g, '$1')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*+/g, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/\*+/g, '');
+  return stripMarkupText(markdownText).replace(/\s+/g, ' ').trim();
 }
 
 export function parseChangelog(source) {
@@ -3634,7 +3633,7 @@ export function assertCountryDevelopmentsRendered({
     const anchors = [contentLines[0], contentLines.at(-1)]
       .filter((line, index, all) => line && all.indexOf(line) === index)
       .map((line) => escapeHtml(line.slice(0, 120)));
-    const pageText = html.replace(/<[^>]+>/g, '');
+    const pageText = stripMarkupText(html);
     for (const anchor of anchors) {
       if (!pageText.includes(anchor)) {
         throw new Error(`${pagePath} dropped its frozen intel brief`);
@@ -3661,13 +3660,11 @@ function corpusMainHtml(html) {
   const source = String(html || '');
   const match = source.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i);
   const main = match ? match[1] : source;
-  return main
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script(?:[\t\n\f\r ][^>]*|\/[^>]*)?>/gi, '')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style(?:[\t\n\f\r ][^>]*|\/[^>]*)?>/gi, '');
+  return removeMarkupBlocks(main, ['script', 'style']);
 }
 
 function corpusVisibleText(html) {
-  return corpusMainHtml(html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return stripMarkupText(corpusMainHtml(html)).replace(/\s+/g, ' ').trim();
 }
 
 function intelBriefHtml(html) {
