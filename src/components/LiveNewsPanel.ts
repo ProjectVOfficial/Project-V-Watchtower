@@ -969,7 +969,7 @@ export class LiveNewsPanel extends Panel {
 
   private async renderDesktopEmbedAsync(force = false): Promise<void> {
     const videoId = this.activeChannel.videoId;
-    if (!videoId) {
+    if (!videoId || !/^[A-Za-z0-9_-]{11}$/.test(videoId)) {
       this.showOfflineMessage(this.activeChannel);
       return;
     }
@@ -1005,7 +1005,13 @@ export class LiveNewsPanel extends Panel {
       mute: this.isMuted ? '1' : '0',
     });
     if (quality !== 'auto') params.set('vq', quality);
-    const embedUrl = `http://localhost:${getLocalApiPort()}/api/youtube-embed?${params.toString()}`;
+    const localPort = Number(getLocalApiPort());
+    if (!Number.isInteger(localPort) || localPort < 1 || localPort > 65535) {
+      this.showOfflineMessage(this.activeChannel);
+      return;
+    }
+    const embedUrl = new URL('/api/youtube-embed', `http://127.0.0.1:${localPort}`);
+    embedUrl.search = params.toString();
 
     if (renderToken !== this.desktopEmbedRenderToken) {
       return;
@@ -1013,7 +1019,7 @@ export class LiveNewsPanel extends Panel {
 
     const iframe = document.createElement('iframe');
     iframe.className = 'live-news-embed-frame';
-    iframe.src = embedUrl;
+    iframe.src = embedUrl.href;
     iframe.title = `${this.activeChannel.name} live feed`;
     iframe.style.width = '100%';
     iframe.style.height = '100%';
@@ -1021,6 +1027,7 @@ export class LiveNewsPanel extends Panel {
     iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
     iframe.allowFullscreen = true;
     iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
     iframe.setAttribute('loading', 'eager');
 
     this.playerContainer.appendChild(iframe);
